@@ -3,10 +3,12 @@ Contains functions for training and testing a PyTorch model.
 """
 
 #!pip install ipywidgets
-import pandas as pd
-from typing import Dict, List, Tuple
 import torch
 import torchvision
+import random
+import time
+import pandas as pd
+from typing import Dict, List, Tuple
 from tqdm.auto import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from typing import Optional
@@ -17,8 +19,14 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from timeit import default_timer as timer
 from PIL import Image
-import random
+from torch import GradScaler, autocast
 
+
+def sec_to_min_sec(seconds):
+    minutes = seconds // 60
+    remaining_seconds = seconds % 60
+    return f"{int(minutes)}m{int(remaining_seconds)}s"
+    
 # Calculate accuracy (a classification metric)
 def accuracy_fn(y_true, y_pred):
     """Calculates accuracy between truth labels and predictions.
@@ -39,6 +47,8 @@ def train_step(model: torch.nn.Module,
                dataloader: torch.utils.data.DataLoader, 
                loss_fn: torch.nn.Module, 
                optimizer: torch.optim.Optimizer,
+               amp: bool,
+               scaler: Optional[torch.GradScaler],
                device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
     
     """Trains a PyTorch model for a single epoch.
@@ -52,6 +62,7 @@ def train_step(model: torch.nn.Module,
     dataloader: A DataLoader instance for the model to be trained on.
     loss_fn: A PyTorch loss function to minimize.
     optimizer: A PyTorch optimizer to help minimize the loss function.
+    amp: Whether to use mixed precision training (True) or not (False)
     device: A target device to compute on (e.g. "cuda" or "cpu").
 
     Returns:
@@ -68,33 +79,53 @@ def train_step(model: torch.nn.Module,
     train_loss, train_acc = 0, 0    
 
     # Loop through data loader data batches
-    for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader), position=0):
+    for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)): 
+        #, desc=f"Training epoch {epoch_number}..."):
         # Send data to target device
         X, y = X.to(device), y.to(device)
 
-        # 1. Forward pass
-        y_pred = model(X)
+        # Optimize training with amp if available
+        if amp:
+            with autocast(device_type='cuda', dtype=torch.float16):
+                # 1. Forward pass
+                y_pred = model(X)
 
-        # 2. Calculate  and accumulate loss
-        loss = loss_fn(y_pred, y)
-        train_loss += loss.item() 
+                # 2. Calculate  and accumulate loss
+                loss = loss_fn(y_pred, y)
+            
+            # 3. Optimizer zero grad
+            optimizer.zero_grad()
 
-        # 3. Optimizer zero grad
-        optimizer.zero_grad()
+            # 4. Backward pass and optimizer step with scaled gradients
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
-        # 4. Loss backward
-        loss.backward()
+        else:
+            # 1. Forward pass
+            y_pred = model(X)
 
-        # 5. Optimizer step
-        optimizer.step()
+            # 2. Calculate  and accumulate loss
+            loss = loss_fn(y_pred, y)
 
-        # Calculate and accumulate accuracy metric across all batches
+            # 3. Optimizer zero grad
+            optimizer.zero_grad()
+
+            # 4. Loss backward
+            loss.backward()
+
+            # 5. Optimizer step
+            optimizer.step()
+
+        # 6. Calculate and accumulate loss and accuracy across all batches
+        train_loss += loss.item()
         y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
 
-    # Adjust metrics to get average loss and accuracy per batch 
+    # 7. Adjust metrics to get average loss and accuracy per batch 
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
+
     return train_loss, train_acc
 
 def test_step(model: torch.nn.Module, 
@@ -128,7 +159,8 @@ def test_step(model: torch.nn.Module,
     # Turn on inference context manager
     with torch.inference_mode():
         # Loop through DataLoader batches
-        for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader), position=1):
+        for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader), colour='#FF9E2C'):
+            #, desc=f"Validating epoch {epoch_number}..."):
             # Send data to target device
             X, y = X.to(device), y.to(device)
 
@@ -158,6 +190,7 @@ def train(model: torch.nn.Module,
           epochs: int,
           device: torch.device, 
           plot_curves: bool,
+          amp: bool,
           writer: torch.utils.tensorboard.writer.SummaryWriter
           ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
@@ -180,6 +213,7 @@ def train(model: torch.nn.Module,
       epochs: An integer indicating how many epochs to train for.
       device: A target device to compute on (e.g. "cuda" or "cpu").
       plot: A boolean indicating whether to plot the training and testing curves.
+      amp: A boolean indicating whether to use Automatic Mixed Precision (AMP) during training
       writer: A SummaryWriter() instance to log model results to.
 
     Returns:
@@ -209,25 +243,42 @@ def train(model: torch.nn.Module,
                "train_acc": [],
                "test_loss": [],
                "test_acc": [],
+               "train_time [s]": [],
+               "test_time [s]": [],
                "lr": [] 
     }
 
-    # Loop through training and testing steps for a number of epochs
-    for epoch in tqdm(range(epochs)):
+    # Initialize the GradScaler for  Automatic Mixed Precision (AMP)
+    scaler = GradScaler() if amp else None
 
+    # Define epoch progress bar
+    #epoch_bar = tqdm(range(epochs), unit="epoch", position=0)
+
+    # Loop through training and testing steps for a number of epochs
+    for epoch in range(epochs):
+
+        # Perform training step and time it
         print(f"Training epoch {epoch+1}...")
+        train_epoch_start_time = time.time()        
         train_loss, train_acc = train_step(model=model,
                                           dataloader=train_dataloader,
                                           loss_fn=loss_fn,
                                           optimizer=optimizer,
+                                          amp=amp,
+                                          scaler=scaler,
                                           device=device)
-        
+        train_epoch_end_time = time.time()
+        train_epoch_time = train_epoch_end_time - train_epoch_start_time
+
+        # Perform test step and time it
         print(f"Validating epoch {epoch+1}...")
+        test_epoch_start_time = time.time()
         test_loss, test_acc = test_step(model=model,
                                         dataloader=test_dataloader,
-                                        loss_fn=loss_fn,
+                                        loss_fn=loss_fn,                                        
                                         device=device)
-
+        test_epoch_end_time = time.time()
+        test_epoch_time = test_epoch_end_time - test_epoch_start_time
 
         clear_output(wait=True)
 
@@ -241,9 +292,11 @@ def train(model: torch.nn.Module,
             f"{BLACK}Epoch: {epoch+1} | "
             f"{BLUE}train_loss: {train_loss:.4f} {BLACK}| "
             f"{BLUE}train_acc: {train_acc:.4f} {BLACK}| "
+            f"{BLUE}train_time: {sec_to_min_sec(train_epoch_time)} {BLACK}| "
             f"{ORANGE}test_loss: {test_loss:.4f} {BLACK}| "
             f"{ORANGE}test_acc: {test_acc:.4f} {BLACK}| "
-            f"{GREEN}lr: {lr:.10f} "
+            f"{ORANGE}test_time: {sec_to_min_sec(test_epoch_time)} {BLACK}| "
+            f"{GREEN}lr: {lr:.10f}"
         )
     
 
@@ -252,6 +305,8 @@ def train(model: torch.nn.Module,
         results["train_acc"].append(train_acc)
         results["test_loss"].append(test_loss)
         results["test_acc"].append(test_acc)
+        results["train_time [s]"].append(train_epoch_time)
+        results["test_time [s]"].append(test_epoch_time)
         results["lr"].append(lr)
 
         # Scheduler step after the optimizer
@@ -283,7 +338,10 @@ def train(model: torch.nn.Module,
             plt.legend()
             plt.show()
 
-        ### New: Use the writer parameter to track experiments ###
+        # Update the tqdm progress bar description with the current epoch
+        #epoch_bar.set_description(f"Epoch {epoch+1}/{epochs}")
+        #epoch_bar.update(1)
+
         # See if there's a writer, if so, log to it
         if writer:
             # Add results to SummaryWriter
@@ -297,7 +355,6 @@ def train(model: torch.nn.Module,
                                global_step=epoch)
         else:
             pass
-    ### End new ###
 
     # Close the writer
     if writer:        

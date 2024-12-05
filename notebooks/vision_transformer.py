@@ -103,6 +103,67 @@ class MultiheadSelfAttentionBlock(nn.Module):
                                    need_weights=False) # do we need the weights or just the layer outputs?
         return x
     
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class MultiheadSelfAttentionBlockV2(nn.Module):
+    """Creates a custom multi-head self-attention block using scaled dot-product attention."""
+    
+    def __init__(self,
+                 emb_dim: int = 768,  # Hidden size D (ViT-Base)
+                 num_heads: int = 12,  # Heads (ViT-Base)
+                 dropout: float = 0.0):  # Dropout for attention weights
+        super().__init__()
+
+        # 2. Create the Norm layer (LayerNorm)
+        self.layer_norm = nn.LayerNorm(normalized_shape=emb_dim)
+
+        # 3. Store parameters
+        self.num_heads = num_heads
+        self.emb_dim = emb_dim
+        self.dropout = dropout
+        self.head_dim = emb_dim // num_heads  # Ensure emb_dim is divisible by num_heads
+
+        assert emb_dim % num_heads == 0, "Embedding dimension must be divisible by number of heads."
+
+    def split_into_heads(self, x):
+        """Split input tensor into multiple heads."""
+        batch_size, seq_len, emb_dim = x.shape
+        x = x.view(batch_size, seq_len, self.num_heads, self.head_dim)
+        return x.permute(0, 2, 1, 3)  # (batch_size, num_heads, seq_len, head_dim)
+
+    def combine_heads(self, x):
+        """Combine the heads back into a single tensor."""
+        batch_size, num_heads, seq_len, head_dim = x.shape
+        x = x.permute(0, 2, 1, 3)  # (batch_size, seq_len, num_heads, head_dim)
+        return x.contiguous().view(batch_size, seq_len, self.emb_dim)
+
+    def forward(self, x):
+        """Forward pass for the MSA block."""
+        # 1. Apply LayerNorm to the input
+        normed_x = self.layer_norm(x)
+
+        # 2. Split the input tensor into multiple heads
+        query = self.split_into_heads(normed_x)
+        key = self.split_into_heads(normed_x)
+        value = self.split_into_heads(normed_x)
+
+        # 3. Perform scaled dot-product attention for each head
+        attn_output = F.scaled_dot_product_attention(query=query,
+                                                     key=key,
+                                                     value=value,
+                                                     dropout_p=self.dropout,
+                                                     is_causal=False)  # Set to True if causal attention is needed
+
+        # 4. Combine the heads back into a single tensor
+        output = self.combine_heads(attn_output)
+
+        # 5. Add residual connection
+        output = x + output
+
+        return output
+
 
 class MLPBlock(nn.Module):
     """Creates a layer normalized multilayer perceptron block ("MLP block" for short)."""
@@ -246,7 +307,7 @@ class ViT(nn.Module):
         if classif_head_hidden_units:
             self.classifier = nn.Sequential(
                 nn.LayerNorm(normalized_shape=emb_dim),
-                nn.Linear(in_features=emb_dim, out_features=head_hidden_units),
+                nn.Linear(in_features=emb_dim, out_features=classif_head_hidden_units),
                 nn.GELU(),
                 nn.Dropout(p=mlp_dropout),
                 nn.Linear(in_features=classif_head_hidden_units, out_features=num_classes)                
