@@ -232,7 +232,7 @@ class TransformerEncoderBlock(nn.Module):
 # Create a ViT class that inherits from nn.Module
 class ViT(nn.Module):
     """Creates a Vision Transformer architecture with ViT-Base hyperparameters by default."""
-    # 1. Initialize the class with hyperparameters from Table 1 and Table 3
+    # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  img_size:int=224, # Training resolution from Table 3 in ViT paper
                  in_channels:int=3, # Number of channels in input image
@@ -248,7 +248,7 @@ class ViT(nn.Module):
                  num_classes:int=1000): # Default for ImageNet but can customize this
         
         """
-        Initializes a Vision Transformer (ViT) model with specified hyperparameters.
+        Initializes a Vision Transformer (ViT) model with specified hyperparameters (ViT-Base parameters by default). 
 
         The constructor sets up the ViT model by configuring the input image size, number of transformer layers,
         embedding dimension, number of attention heads, MLP size, and dropout rates, based on the ViT-Base configuration 
@@ -275,14 +275,14 @@ class ViT(nn.Module):
 
         super().__init__() # don't forget the super().__init__()!
 
-        # 2. Create patch embedding layer
+        # Create patch embedding layer
         self.embedder = PatchEmbedding(img_size=img_size,
                                         in_channels=in_channels,
                                         patch_size=patch_size,
                                         emb_dim=emb_dim,
                                         emb_dropout=emb_dropout)
 
-        # 3. Create Transformer Encoder blocks (we can stack Transformer Encoder blocks using nn.Sequential())
+        # Create Transformer Encoder blocks (we can stack Transformer Encoder blocks using nn.Sequential())
         # Note: The "*" means "all"
         self.encoder = nn.Sequential(*[TransformerEncoderBlock(emb_dim=emb_dim,
                                                                num_heads=num_heads,
@@ -303,7 +303,7 @@ class ViT(nn.Module):
         #self.encoder = nn.TransformerEncoder(encoder_layer=self.encoder_layer,
         #                                     num_layers=num_transformer_layers)
         
-        # 4. Create classifier head
+        # Create classifier head
         if classif_head_hidden_units:
             self.classifier = nn.Sequential(
                 nn.LayerNorm(normalized_shape=emb_dim),
@@ -424,16 +424,16 @@ class ViT(nn.Module):
         for param in self.classifier.parameters():
             param.requires_grad = except_head
 
-    # 5. Create a forward() method
+    # Create a forward() method
     def forward(self, x):
 
-        # 6. Create patch embedding (equation 1)
+        # Create patch embedding (equation 1)
         x = self.embedder(x)
 
-        # 7. Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
+        # Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
         x = self.encoder(x)
 
-        # 8. Put 0 index logit through classifier (equation 4)
+        # Put 0 index logit through classifier (equation 4)
         x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
 
         return x
@@ -441,8 +441,7 @@ class ViT(nn.Module):
 
 # Create a ViT class that inherits from nn.Module
 class ViTv2(nn.Module):
-    """Creates a Vision Transformer architecture with ViT-Base hyperparameters by default."""
-    # 1. Initialize the class with hyperparameters from Table 1 and Table 3
+    # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  img_size:int=224, # Training resolution from Table 3 in ViT paper
                  in_channels:int=3, # Number of channels in input image
@@ -454,11 +453,13 @@ class ViTv2(nn.Module):
                  emb_dropout:float=0.1, # Dropout for patch and position embeddings
                  attn_dropout:float=0, # Dropout for attention projection
                  mlp_dropout:float=0.1, # Dropout for dense/MLP layers                                  
-                 classif_head:nn.Module=None, # Extra hidden layer in classification header
+                 classif_heads:nn.Module=None, # Classification head(s)
                  num_classes:int=1000): # Default for ImageNet but can customize this
         
         """
-        Initializes a Vision Transformer (ViT) model with specified hyperparameters.
+        Initializes a Vision Transformer (ViT) model with specified hyperparameters (ViT-Base parameters by default). 
+        V2 is identical to V1 except that the classification head can be passed as an argument, allowing for customization 
+        of the number of hidden layers and units per layer.
 
         The constructor sets up the ViT model by configuring the input image size, number of transformer layers,
         embedding dimension, number of attention heads, MLP size, and dropout rates, based on the ViT-Base configuration 
@@ -474,8 +475,8 @@ class ViTv2(nn.Module):
         - num_heads (int, optional): The number of attention heads in each transformer layer. Default is 12.
         - emb_dropout (float, optional): The dropout rate applied to patch and position embeddings. Default is 0.1.
         - attn_dropout (float, optional): The dropout rate applied to attention layers. Default is 0.
-        - mlp_dropout (float, optional): The dropout rate applied to the MLP layers. Default is 0.1.        
-        - classif_head_hidden_units (int, optional): The number of hidden units in the classification header. Default is 0 (no extra hidden layer).
+        - mlp_dropout (float, optional): The dropout rate applied to the MLP layers. Default is 0.1.
+        - classif_head (nn.Module, optional): An optional extra classification header. Default is None, no hidden layer is used.        
         - num_classes (int, optional): The number of output classes. Default is 1000 for ImageNet, but can be customized.
 
         Note:
@@ -485,14 +486,14 @@ class ViTv2(nn.Module):
 
         super().__init__() # don't forget the super().__init__()!
 
-        # 2. Create patch embedding layer
+        # Create patch embedding layer
         self.embedder = PatchEmbedding(img_size=img_size,
                                         in_channels=in_channels,
                                         patch_size=patch_size,
                                         emb_dim=emb_dim,
                                         emb_dropout=emb_dropout)
 
-        # 3. Create Transformer Encoder blocks (we can stack Transformer Encoder blocks using nn.Sequential())
+        # Create Transformer Encoder blocks (we can stack Transformer Encoder blocks using nn.Sequential())
         # Note: The "*" means "all"
         self.encoder = nn.Sequential(*[TransformerEncoderBlock(emb_dim=emb_dim,
                                                                num_heads=num_heads,
@@ -514,13 +515,14 @@ class ViTv2(nn.Module):
         #                                     num_layers=num_transformer_layers)
         
         # 4. Create classifier head
-        if classif_head:
-            self.classifier = classif_head
+        if classif_heads:
+            self.classifier = nn.ModuleList(classif_heads)
         else:
-            self.classifier = nn.Sequential(
+            classifier = nn.Sequential(
                 nn.LayerNorm(normalized_shape=emb_dim),
                 nn.Linear(in_features=emb_dim, out_features=num_classes)
             )
+            self.classifier = nn.ModuleList([classifier])
 
 
     def copy_weights(self,
@@ -628,16 +630,20 @@ class ViTv2(nn.Module):
         for param in self.classifier.parameters():
             param.requires_grad = except_head
 
-    # 5. Create a forward() method
+    # Create a forward() method
     def forward(self, x):
 
-        # 6. Create patch embedding (equation 1)
+        # Create patch embedding (equation 1)
         x = self.embedder(x)
 
-        # 7. Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
+        # Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
         x = self.encoder(x)
 
-        # 8. Put 0 index logit through classifier (equation 4)
-        x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
+        # Put 0 index logit through classifier (equation 4)
+        #x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
+
+        # Pass the outpu embeddings through the classification heads (as a list)
+        x_list = [head(x[:, 0]) for head in self.classifier]
+        x = torch.mean(torch.stack(x_list), dim=0)
 
         return x

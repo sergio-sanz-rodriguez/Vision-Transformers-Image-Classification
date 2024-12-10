@@ -24,7 +24,6 @@ from torch import GradScaler, autocast
 from sklearn.metrics import precision_recall_curve, classification_report, confusion_matrix
 
 
-
 def sec_to_min_sec(seconds):
     minutes = seconds // 60
     remaining_seconds = seconds % 60
@@ -57,6 +56,9 @@ def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
         float: The calculated FPR at the specified recall threshold.
     """
 
+    if not (0 <= recall_threshold <= 1):
+        raise ValueError("recall_threshold must be between 0 and 1.")
+
     # Convert list to tensor if necessary
     if isinstance(y_pred_probs, list):
         y_pred_probs = torch.cat(y_pred_probs)  
@@ -68,19 +70,19 @@ def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
 
     for class_idx in range(n_classes):
         # Get true binary labels and predicted probabilities for the class
-        binary_y_true = (y_true == class_idx).int().detach().numpy()
+        y_true_bin = (y_true == class_idx).int().detach().numpy()
         y_scores = y_pred_probs[:, class_idx].detach().numpy()
 
         # Compute precision-recall curve
-        precision, recall, thresholds = precision_recall_curve(binary_y_true, y_scores)
+        precision, recall, thresholds = precision_recall_curve(y_true_bin, y_scores)
 
         # Find the threshold closest to the desired recall
         idx = np.where(recall >= recall_threshold)[0]
         if len(idx) > 0:
             threshold = thresholds[idx[-1]]
             # Calculate false positive rate
-            fp = np.sum((y_scores >= threshold) & (binary_y_true == 0))
-            tn = np.sum((y_scores < threshold) & (binary_y_true == 0))
+            fp = np.sum((y_scores >= threshold) & (y_true_bin == 0))
+            tn = np.sum((y_scores < threshold) & (y_true_bin == 0))
             fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
         else:
             fpr = 0  # No threshold meets the recall condition
@@ -141,6 +143,7 @@ def train_step(model: torch.nn.Module,
             with autocast(device_type='cuda', dtype=torch.float16):
                 # Forward pass
                 y_pred = model(X)
+                y_pred = y_pred.contiguous()
                 
                 # Calculate  and accumulate loss
                 loss = loss_fn(y_pred, y)
@@ -184,12 +187,17 @@ def train_step(model: torch.nn.Module,
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
 
-    # Concatenate lists into tensors
-    all_labels = torch.cat(all_labels)
-    all_preds = torch.cat(all_preds)
-
-    # Calculate FPR at specified recall threshold
-    fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold) if recall_threshold else None
+    # Final FPR calculation
+    if recall_threshold and all_preds:
+        try:
+            all_labels = torch.cat(all_labels)
+            all_preds = torch.cat(all_preds)
+            fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
+        except Exception as e:
+            logging.error(f"Error calculating final FPR at recall: {e}")
+            fpr_at_recall = None
+    else:
+        fpr_at_recall = None
 
     return train_loss, train_acc, fpr_at_recall
 
@@ -567,7 +575,8 @@ def pred_and_store(model: torch.nn.Module,
     assert len(list(paths)) > 0, f"No files ending with '.jpg' found in this directory: {test_dir}"
 
     # Number of random images to extract
-    num_random_images = int(percent_samples * len(paths))
+    num_samples = len(paths)
+    num_random_images = int(percent_samples * num_samples)
 
     # Ensure the number of images to extract is less than or equal to the total number of images
     assert num_random_images <= len(paths), f"Number of images to extract exceeds total images in directory: {len(paths)}"
@@ -584,7 +593,7 @@ def pred_and_store(model: torch.nn.Module,
     pred_list = []
     
     # Loop through target paths
-    for path in tqdm(paths):
+    for path in tqdm(paths, total=num_samples):
         
         # Create empty dictionary to store prediction information for each sample
         pred_dict = {}
@@ -610,6 +619,7 @@ def pred_and_store(model: torch.nn.Module,
         # Get prediction probability, predicition label and prediction class
         with torch.inference_mode():
             pred_logit = model(transformed_image) # perform inference on target sample 
+            #pred_logit = pred_logit.contiguous()
             pred_prob = torch.softmax(pred_logit, dim=1) # turn logits into prediction probabilities
             pred_label = torch.argmax(pred_prob, dim=1) # turn prediction probabilities into prediction label
             pred_class = class_names[pred_label.cpu()] # hardcode prediction class to be on CPU
@@ -630,7 +640,7 @@ def pred_and_store(model: torch.nn.Module,
 
         # Append true and predicted label indexes
         y_true.append(class_names.index(class_name))
-        y_pred.append(pred_label)
+        y_pred.append(pred_label.cpu().item())
 
     # Generate the classification report
     classification_report_dict = classification_report(
