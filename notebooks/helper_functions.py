@@ -617,7 +617,6 @@ def get_most_wrong_examples(model: torch.nn.Module,
     '''
 
     # Make predictions on test dataset
-    model.eval()    
     y_preds = []
     y_probs = []
 
@@ -625,7 +624,7 @@ def get_most_wrong_examples(model: torch.nn.Module,
     model.to(device)
 
     with torch.inference_mode():
-        for X, y in tqdm(test_dataloader, desc="Making predictions"):
+        for batch, (X, y) in tqdm(enumerate(test_dataloader), total=len(test_dataloader), colour='#FF9E2C', desc="Making predictions"):
 
             # Send data and targets to target device
             X, y = X.to(device), y.to(device)
@@ -693,24 +692,24 @@ def get_most_wrong_examples(model: torch.nn.Module,
 
     return df_top_wrong
 
-    def zip_folder(folder_path, output_zip, exclusions):
+def zip_folder(folder_path, output_zip, exclusions):
 
-        """Zips the contents of a folder, excluding specified files or folders.
-        folder_to_zip = "demos/foodvision_mini"  # Change this to your folder path
-        output_zip_file = "demos/foodvision_mini.zip"
-        exclusions = ["__pycache__", "ipynb_checkpoints", ".pyc", ".ipynb"]
-        """
+    """Zips the contents of a folder, excluding specified files or folders.
+    folder_to_zip = "demos/foodvision_mini"  # Change this to your folder path
+    output_zip_file = "demos/foodvision_mini.zip"
+    exclusions = ["__pycache__", "ipynb_checkpoints", ".pyc", ".ipynb"]
+    """
 
-        with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(folder_path):
-                # Skip excluded directories
-                dirs[:] = [d for d in dirs if all(excl not in os.path.join(root, d) for excl in exclusions)]
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    # Skip excluded files
-                    if any(excl in file_path for excl in exclusions):
-                        continue
-                    arcname = os.path.relpath(file_path, start=folder_path)
-                    zipf.write(file_path, arcname=arcname)
+    with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(folder_path):
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if all(excl not in os.path.join(root, d) for excl in exclusions)]
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Skip excluded files
+                if any(excl in file_path for excl in exclusions):
+                    continue
+                arcname = os.path.relpath(file_path, start=folder_path)
+                zipf.write(file_path, arcname=arcname)
 
 

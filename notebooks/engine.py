@@ -7,6 +7,7 @@ import torch
 import torchvision
 import random
 import time
+import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
 from tqdm.auto import tqdm
@@ -20,6 +21,8 @@ from pathlib import Path
 from timeit import default_timer as timer
 from PIL import Image
 from torch import GradScaler, autocast
+from sklearn.metrics import precision_recall_curve, classification_report, confusion_matrix
+
 
 
 def sec_to_min_sec(seconds):
@@ -42,13 +45,57 @@ def accuracy_fn(y_true, y_pred):
     acc = (correct / len(y_pred)) * 100
     return acc
 
+def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
+    """Calculates the False Positive Rate (FPR) at a specified recall threshold.
+
+    Args:
+        y_true (torch.Tensor): Ground truth labels.
+        y_pred_probs (torch.Tensor): Predicted probabilities.
+        recall_threshold (float): The recall threshold at which to calculate the FPR.
+
+    Returns:
+        float: The calculated FPR at the specified recall threshold.
+    """
+
+    # Convert list to tensor if necessary
+    if isinstance(y_pred_probs, list):
+        y_pred_probs = torch.cat(y_pred_probs)  
+    if isinstance(y_true, list):
+        y_true = torch.cat(y_true)
+
+    n_classes = y_pred_probs.shape[1]
+    fpr_per_class = []
+
+    for class_idx in range(n_classes):
+        # Get true binary labels and predicted probabilities for the class
+        binary_y_true = (y_true == class_idx).int().detach().numpy()
+        y_scores = y_pred_probs[:, class_idx].detach().numpy()
+
+        # Compute precision-recall curve
+        precision, recall, thresholds = precision_recall_curve(binary_y_true, y_scores)
+
+        # Find the threshold closest to the desired recall
+        idx = np.where(recall >= recall_threshold)[0]
+        if len(idx) > 0:
+            threshold = thresholds[idx[-1]]
+            # Calculate false positive rate
+            fp = np.sum((y_scores >= threshold) & (binary_y_true == 0))
+            tn = np.sum((y_scores < threshold) & (binary_y_true == 0))
+            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+        else:
+            fpr = 0  # No threshold meets the recall condition
+
+        fpr_per_class.append(fpr)
+
+    return np.mean(fpr_per_class)  # Average FPR across all classes
+
 
 def train_step(model: torch.nn.Module, 
                dataloader: torch.utils.data.DataLoader, 
                loss_fn: torch.nn.Module, 
                optimizer: torch.optim.Optimizer,
-               amp: bool,
-               scaler: Optional[torch.GradScaler],
+               recall_threshold: float=None,
+               amp: bool=True,
                device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
     
     """Trains a PyTorch model for a single epoch.
@@ -75,8 +122,13 @@ def train_step(model: torch.nn.Module,
     model.train()
     model.to(device)
 
+    # Initialize the GradScaler for  Automatic Mixed Precision (AMP)
+    scaler = GradScaler() if amp else None
+
     # Setup train loss and train accuracy values
     train_loss, train_acc = 0, 0    
+    all_preds = []
+    all_labels = []
 
     # Loop through data loader data batches
     for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)): 
@@ -87,50 +139,64 @@ def train_step(model: torch.nn.Module,
         # Optimize training with amp if available
         if amp:
             with autocast(device_type='cuda', dtype=torch.float16):
-                # 1. Forward pass
+                # Forward pass
                 y_pred = model(X)
-
-                # 2. Calculate  and accumulate loss
+                
+                # Calculate  and accumulate loss
                 loss = loss_fn(y_pred, y)
             
-            # 3. Optimizer zero grad
+            # Optimizer zero grad
             optimizer.zero_grad()
 
-            # 4. Backward pass and optimizer step with scaled gradients
+            # Backward pass and optimizer step with scaled gradients
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
 
         else:
-            # 1. Forward pass
+            # Forward pass
             y_pred = model(X)
-
-            # 2. Calculate  and accumulate loss
+            y_pred = y_pred.contiguous()
+            
+            # Calculate  and accumulate loss
             loss = loss_fn(y_pred, y)
 
-            # 3. Optimizer zero grad
+            # Optimizer zero grad
             optimizer.zero_grad()
 
-            # 4. Loss backward
+            # Loss backward
             loss.backward()
 
-            # 5. Optimizer step
+            # Optimizer step
             optimizer.step()
 
-        # 6. Calculate and accumulate loss and accuracy across all batches
+        # Calculate and accumulate loss and accuracy across all batches
         train_loss += loss.item()
-        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        #y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        y_pred_class = y_pred.argmax(dim=1)
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
 
-    # 7. Adjust metrics to get average loss and accuracy per batch 
+        if recall_threshold:
+            all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
+            all_labels.append(y.detach().cpu())
+
+    # Adjust metrics to get average loss and accuracy per batch 
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
 
-    return train_loss, train_acc
+    # Concatenate lists into tensors
+    all_labels = torch.cat(all_labels)
+    all_preds = torch.cat(all_preds)
+
+    # Calculate FPR at specified recall threshold
+    fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold) if recall_threshold else None
+
+    return train_loss, train_acc, fpr_at_recall
 
 def test_step(model: torch.nn.Module, 
               dataloader: torch.utils.data.DataLoader, 
               loss_fn: torch.nn.Module,
+              recall_threshold: float=None,
               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
     """Tests a PyTorch model for a single epoch.
 
@@ -155,6 +221,8 @@ def test_step(model: torch.nn.Module,
 
     # Setup test loss and test accuracy values
     test_loss, test_acc = 0, 0
+    all_preds = []
+    all_labels = []
 
     # Turn on inference context manager
     with torch.inference_mode():
@@ -165,20 +233,33 @@ def test_step(model: torch.nn.Module,
             X, y = X.to(device), y.to(device)
 
             # 1. Forward pass
-            test_pred_logits = model(X)
+            test_pred = model(X)
+            test_pred = test_pred.contiguous()
 
             # 2. Calculate and accumulate loss
-            loss = loss_fn(test_pred_logits, y)
+            loss = loss_fn(test_pred, y)
             test_loss += loss.item()
 
             # Calculate and accumulate accuracy
-            test_pred_labels = test_pred_logits.argmax(dim=1)
-            test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels))
+            test_pred_class = test_pred.argmax(dim=1)
+            test_acc += ((test_pred_class == y).sum().item()/len(test_pred))
+
+            if recall_threshold:
+                all_preds.append(torch.softmax(test_pred, dim=1).detach().cpu())
+                all_labels.append(y.detach().cpu())
 
     # Adjust metrics to get average loss and accuracy per batch 
     test_loss = test_loss / len(dataloader)
     test_acc = test_acc / len(dataloader)
-    return test_loss, test_acc
+
+    # Concatenate lists into tensors
+    all_labels = torch.cat(all_labels)
+    all_preds = torch.cat(all_preds)
+
+    # Calculate FPR at specified recall threshold
+    fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold) if recall_threshold else None
+
+    return test_loss, test_acc, fpr_at_recall
 
 # Add writer parameter to train()
 def train(model: torch.nn.Module, 
@@ -186,12 +267,13 @@ def train(model: torch.nn.Module,
           test_dataloader: torch.utils.data.DataLoader, 
           optimizer: torch.optim.Optimizer,
           loss_fn: torch.nn.Module,
-          scheduler: torch.optim.lr_scheduler, #Optional[torch.optim.lr_scheduler.LRScheduler]=None,
-          epochs: int,
-          device: torch.device, 
-          plot_curves: bool,
-          amp: bool,
-          writer: torch.utils.tensorboard.writer.SummaryWriter
+          recall_threshold: float=None,
+          scheduler: torch.optim.lr_scheduler=None, #Optional[torch.optim.lr_scheduler.LRScheduler]=None,
+          epochs: int=30,
+          device: torch.device="cuda" if torch.cuda.is_available() else "cpu", 
+          plot_curves: bool=True,
+          amp: bool=True,
+          writer: torch.utils.tensorboard.writer.SummaryWriter=False
           ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
 
@@ -239,17 +321,21 @@ def train(model: torch.nn.Module,
     RESET = '\033[39m'  # Reset to default color
 
     # Create empty results dictionary
-    results = {"train_loss": [],
-               "train_acc": [],
-               "test_loss": [],
-               "test_acc": [],
-               "train_time [s]": [],
-               "test_time [s]": [],
-               "lr": [] 
-    }
-
-    # Initialize the GradScaler for  Automatic Mixed Precision (AMP)
-    scaler = GradScaler() if amp else None
+    results = {
+        "train_loss": [],
+        "train_acc": [],
+        "test_loss": [],
+        "test_acc": [],
+        "train_time [s]": [],
+        "test_time [s]": [],
+        "lr": [] 
+        }
+    if recall_threshold:
+        results.update(
+            {"train_fpr_at_recall": [],
+            "test_fpr_at_recall": []
+            }
+        )
 
     # Define epoch progress bar
     #epoch_bar = tqdm(range(epochs), unit="epoch", position=0)
@@ -260,23 +346,26 @@ def train(model: torch.nn.Module,
         # Perform training step and time it
         print(f"Training epoch {epoch+1}...")
         train_epoch_start_time = time.time()        
-        train_loss, train_acc = train_step(model=model,
-                                          dataloader=train_dataloader,
-                                          loss_fn=loss_fn,
-                                          optimizer=optimizer,
-                                          amp=amp,
-                                          scaler=scaler,
-                                          device=device)
+        train_loss, train_acc, train_fpr_at_recall = train_step(
+            model=model,
+            dataloader=train_dataloader,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            recall_threshold=recall_threshold,
+            amp=amp,
+            device=device)
         train_epoch_end_time = time.time()
         train_epoch_time = train_epoch_end_time - train_epoch_start_time
 
         # Perform test step and time it
         print(f"Validating epoch {epoch+1}...")
         test_epoch_start_time = time.time()
-        test_loss, test_acc = test_step(model=model,
-                                        dataloader=test_dataloader,
-                                        loss_fn=loss_fn,                                        
-                                        device=device)
+        test_loss, test_acc, test_fpr_at_recall = test_step(
+            model=model,
+            dataloader=test_dataloader,
+            loss_fn=loss_fn,
+            recall_threshold=recall_threshold,                             
+            device=device)
         test_epoch_end_time = time.time()
         test_epoch_time = test_epoch_end_time - test_epoch_start_time
 
@@ -292,14 +381,15 @@ def train(model: torch.nn.Module,
             f"{BLACK}Epoch: {epoch+1} | "
             f"{BLUE}train_loss: {train_loss:.4f} {BLACK}| "
             f"{BLUE}train_acc: {train_acc:.4f} {BLACK}| "
-            f"{BLUE}train_time: {sec_to_min_sec(train_epoch_time)} {BLACK}| "
+            f"{BLUE}fpr_at_recall: {train_fpr_at_recall if recall_threshold else 0:.4f} {BLACK}| "
+            f"{BLUE}train_time: {sec_to_min_sec(train_epoch_time)} {BLACK}| "            
             f"{ORANGE}test_loss: {test_loss:.4f} {BLACK}| "
             f"{ORANGE}test_acc: {test_acc:.4f} {BLACK}| "
+            f"{ORANGE}fpr_at_recall: {test_fpr_at_recall if recall_threshold else 0:.4f} {BLACK}| "
             f"{ORANGE}test_time: {sec_to_min_sec(test_epoch_time)} {BLACK}| "
             f"{GREEN}lr: {lr:.10f}"
         )
     
-
         # Update results dictionary
         results["train_loss"].append(train_loss)
         results["train_acc"].append(train_acc)
@@ -308,19 +398,22 @@ def train(model: torch.nn.Module,
         results["train_time [s]"].append(train_epoch_time)
         results["test_time [s]"].append(test_epoch_time)
         results["lr"].append(lr)
+        if recall_threshold:
+            results["train_fpr_at_recall"].append(train_fpr_at_recall)
+            results["test_fpr_at_recall"].append(test_fpr_at_recall)
 
         # Scheduler step after the optimizer
-        if scheduler:
-            scheduler.step()
+        scheduler.step() if scheduler else None
 
         # Plot loss and accuracy curves
+        n_plots = 3 if recall_threshold else 2
         if plot_curves:
             
             plt.figure(figsize=(20, 6))
-            range_epochs = range(len(results["train_loss"]))           
+            range_epochs = range(1, len(results["train_loss"])+1)
 
             # Plot loss
-            plt.subplot(1, 2, 1)
+            plt.subplot(1, n_plots, 1)
             plt.plot(range_epochs, results["train_loss"], label="train_loss")
             plt.plot(range_epochs, results["test_loss"], label="test_loss")
             plt.title("Loss")
@@ -329,13 +422,24 @@ def train(model: torch.nn.Module,
             plt.legend()
 
             # Plot accuracy
-            plt.subplot(1, 2, 2)
+            plt.subplot(1, n_plots, 2)
             plt.plot(range_epochs, results["train_acc"], label="train_accuracy")
             plt.plot(range_epochs, results["test_acc"], label="test_accuracy")
             plt.title("Accuracy")
             plt.xlabel("Epochs")
             plt.grid(visible=True, which="both", axis="both")
             plt.legend()
+            
+            # Plot FPR at recall
+            if recall_threshold:
+                plt.subplot(1, n_plots, 3)
+                plt.plot(range_epochs, results["train_fpr_at_recall"], label="train_fpr_at_recall")
+                plt.plot(range_epochs, results["test_fpr_at_recall"], label="test_fpr_at_recall")
+                plt.title(f"FPR at {recall_threshold * 100}% recall")
+                plt.xlabel("Epochs")
+                plt.grid(visible=True, which="both", axis="both")
+                plt.legend()
+            
             plt.show()
 
         # Update the tqdm progress bar description with the current epoch
@@ -353,12 +457,17 @@ def train(model: torch.nn.Module,
                                tag_scalar_dict={"train_acc": train_acc,
                                                 "test_acc": test_acc}, 
                                global_step=epoch)
+            if recall_threshold:
+                writer.add_scalars(main_tag="FPR at Recall", 
+                                   tag_scalar_dict={"train_fpr_at_recall": train_fpr_at_recall,
+                                                    "test_fpr_at_recall": test_fpr_at_recall}, 
+                                   global_step=epoch)
+
         else:
             pass
 
     # Close the writer
-    if writer:        
-        writer.close()
+    writer.close() if writer else None
 
     # Return the filled results at the end of the epochs
     return results
@@ -452,7 +561,7 @@ def pred_and_store(model: torch.nn.Module,
     Args:
     paths: a list of target sample paths
     """
-    # 1. Create a list of test images and checkout existence
+    # Create a list of test images and checkout existence
     print(f"[INFO] Finding all filepaths ending with '.jpg' in directory: {test_dir}")
     paths = list(Path(test_dir).glob("*/*.jpg"))
     assert len(list(paths)) > 0, f"No files ending with '.jpg' found in this directory: {test_dir}"
@@ -467,56 +576,72 @@ def pred_and_store(model: torch.nn.Module,
     torch.manual_seed(seed)
     paths = random.sample(paths, num_random_images)
 
-    # 2. Create an empty list to store prediction dictionaires
+    # Store predictions and ground-truth labels
+    y_true = []
+    y_pred = []
+
+    # Create an empty list to store prediction dictionaires
     pred_list = []
     
-    # 3. Loop through target paths
+    # Loop through target paths
     for path in tqdm(paths):
         
-        # 4. Create empty dictionary to store prediction information for each sample
+        # Create empty dictionary to store prediction information for each sample
         pred_dict = {}
 
-        # 5. Get the sample path and ground truth class name
+        # Get the sample path and ground truth class name
         pred_dict["image_path"] = path
         class_name = path.parent.stem
         pred_dict["class_name"] = class_name
         
-        # 6. Start the prediction timer
+        # Start the prediction timer
         start_time = timer()
         
-        # 7. Open image path
+        # Open image path
         img = Image.open(path)
         
-        # 8. Transform the image, add batch dimension and put image on target device
+        # Transform the image, add batch dimension and put image on target device
         transformed_image = transform(img).unsqueeze(0).to(device) 
         
-        # 9. Prepare model for inference by sending it to target device and turning on eval() mode
+        # Prepare model for inference by sending it to target device and turning on eval() mode
         model.to(device)
         model.eval()
         
-        # 10. Get prediction probability, predicition label and prediction class
+        # Get prediction probability, predicition label and prediction class
         with torch.inference_mode():
             pred_logit = model(transformed_image) # perform inference on target sample 
             pred_prob = torch.softmax(pred_logit, dim=1) # turn logits into prediction probabilities
             pred_label = torch.argmax(pred_prob, dim=1) # turn prediction probabilities into prediction label
             pred_class = class_names[pred_label.cpu()] # hardcode prediction class to be on CPU
 
-            # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on) 
+            # Make sure things in the dictionary are on CPU (required for inspecting predictions later on) 
             pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
             pred_dict["pred_class"] = pred_class
             
-            # 12. End the timer and calculate time per pred
+            # End the timer and calculate time per pred
             end_time = timer()
             pred_dict["time_for_pred"] = round(end_time-start_time, 4)
 
-        # 13. Does the pred match the true label?
+        # Does the pred match the true label?
         pred_dict["correct"] = class_name == pred_class
 
-        # 14. Add the dictionary to the list of preds
+        # Add the dictionary to the list of preds
         pred_list.append(pred_dict)
-        
-    # 15. Return list of prediction dictionaries
-    return pred_list
+
+        # Append true and predicted label indexes
+        y_true.append(class_names.index(class_name))
+        y_pred.append(pred_label)
+
+    # Generate the classification report
+    classification_report_dict = classification_report(
+        y_true=y_true,
+        y_pred=y_pred,
+        target_names=class_names,
+        output_dict=True
+    )
+
+    # Return list of prediction dictionaries
+    return pred_list, classification_report_dict
 
 
 def create_writer(experiment_name: str, 

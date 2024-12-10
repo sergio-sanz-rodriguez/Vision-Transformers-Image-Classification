@@ -437,3 +437,207 @@ class ViT(nn.Module):
         x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
 
         return x
+
+
+# Create a ViT class that inherits from nn.Module
+class ViTv2(nn.Module):
+    """Creates a Vision Transformer architecture with ViT-Base hyperparameters by default."""
+    # 1. Initialize the class with hyperparameters from Table 1 and Table 3
+    def __init__(self,
+                 img_size:int=224, # Training resolution from Table 3 in ViT paper
+                 in_channels:int=3, # Number of channels in input image
+                 patch_size:int=16, # Patch size
+                 num_transformer_layers:int=12, # Layers from Table 1 for ViT-Base
+                 emb_dim:int=768, # Hidden size D from Table 1 for ViT-Base
+                 mlp_size:int=3072, # MLP size from Table 1 for ViT-Base
+                 num_heads:int=12, # Heads from Table 1 for ViT-Base
+                 emb_dropout:float=0.1, # Dropout for patch and position embeddings
+                 attn_dropout:float=0, # Dropout for attention projection
+                 mlp_dropout:float=0.1, # Dropout for dense/MLP layers                                  
+                 classif_head:nn.Module=None, # Extra hidden layer in classification header
+                 num_classes:int=1000): # Default for ImageNet but can customize this
+        
+        """
+        Initializes a Vision Transformer (ViT) model with specified hyperparameters.
+
+        The constructor sets up the ViT model by configuring the input image size, number of transformer layers,
+        embedding dimension, number of attention heads, MLP size, and dropout rates, based on the ViT-Base configuration 
+        as detailed in the original ViT paper. These parameters are also customizable to suit different downstream tasks.
+
+        Args:
+        - img_size (int, optional): The resolution of the input images. Default is 224.
+        - in_channels (int, optional): The number of input image channels. Default is 3 (RGB).
+        - patch_size (int, optional): The size of patches to divide the input image into. Default is 16.
+        - num_transformer_layers (int, optional): The number of transformer layers. Default is 12 for ViT-Base.
+        - emb_dim (int, optional): The dimensionality of the embedding space. Default is 768 for ViT-Base.
+        - mlp_size (int, optional): The size of the MLP hidden layers. Default is 3072 for ViT-Base.
+        - num_heads (int, optional): The number of attention heads in each transformer layer. Default is 12.
+        - emb_dropout (float, optional): The dropout rate applied to patch and position embeddings. Default is 0.1.
+        - attn_dropout (float, optional): The dropout rate applied to attention layers. Default is 0.
+        - mlp_dropout (float, optional): The dropout rate applied to the MLP layers. Default is 0.1.        
+        - classif_head_hidden_units (int, optional): The number of hidden units in the classification header. Default is 0 (no extra hidden layer).
+        - num_classes (int, optional): The number of output classes. Default is 1000 for ImageNet, but can be customized.
+
+        Note:
+        This initialization is based on the ViT-Base/16 model as described in the Vision Transformer paper. Custom values can
+        be provided for these parameters based on the specific task or dataset.
+        """
+
+        super().__init__() # don't forget the super().__init__()!
+
+        # 2. Create patch embedding layer
+        self.embedder = PatchEmbedding(img_size=img_size,
+                                        in_channels=in_channels,
+                                        patch_size=patch_size,
+                                        emb_dim=emb_dim,
+                                        emb_dropout=emb_dropout)
+
+        # 3. Create Transformer Encoder blocks (we can stack Transformer Encoder blocks using nn.Sequential())
+        # Note: The "*" means "all"
+        self.encoder = nn.Sequential(*[TransformerEncoderBlock(emb_dim=emb_dim,
+                                                               num_heads=num_heads,
+                                                               mlp_size=mlp_size,
+                                                               attn_dropout=attn_dropout,
+                                                               mlp_dropout=mlp_dropout) for _ in range(num_transformer_layers)])
+        
+        # Alternative using pytorch build-in functions
+        #self.encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim,
+        #                                                nhead=num_heads,
+        #                                                dim_feedforward=mlp_size,
+        #                                                dropout=mlp_dropout,
+        #                                                activation="gelu",
+        #                                                batch_first=True,
+        #                                                norm_first=True)
+        
+        # Create the stacked transformer encoder
+        #self.encoder = nn.TransformerEncoder(encoder_layer=self.encoder_layer,
+        #                                     num_layers=num_transformer_layers)
+        
+        # 4. Create classifier head
+        if classif_head:
+            self.classifier = classif_head
+        else:
+            self.classifier = nn.Sequential(
+                nn.LayerNorm(normalized_shape=emb_dim),
+                nn.Linear(in_features=emb_dim, out_features=num_classes)
+            )
+
+
+    def copy_weights(self,
+                      model_weights: torchvision.models.ViT_B_16_Weights):
+        """
+        Copies the pretrained weights from a ViT model (Vision Transformer) to the current model.
+        This method assumes that the current model has a structure compatible with the ViT-base architecture.
+        
+        Args:
+            model_weights (torchvision.models.ViT_B_16_Weights): The pretrained weights of the ViT model.
+                This should be a state dictionary from a ViT-B_16 architecture, such as the one provided
+                by torchvision's ViT_B_16_Weights.DEFAULT.
+
+        Notes:
+            - This method manually copies weights from the pretrained ViT model to the corresponding layers of the current model.
+            - It supports the ViT-base architecture with 12 transformer encoder layers and expects a similar
+            structure in the target model (e.g., embedder, encoder layers, classifier).
+            - This method does not update the optimizer state or any other model parameters beyond the weights.
+
+        Example:
+            pretrained_vit_weights = torchvision.models.ViT_B_16_Weights.DEFAULT
+            model.copy_weights(pretrained_vit_weights)
+        """
+
+
+        # Get the current state_dict of ViT
+        state_dict = self.state_dict()
+
+        # Get the actual model weights from the input model
+        pretrained_state_dict = model_weights.get_state_dict()
+
+        # Update the parameters element-wise
+        state_dict['embedder.class_token'].copy_(pretrained_state_dict['class_token'])
+        state_dict['embedder.pos_embedding'].copy_(pretrained_state_dict['encoder.pos_embedding'])
+        state_dict['embedder.conv_proj.weight'].copy_(pretrained_state_dict['conv_proj.weight'])
+        state_dict['embedder.conv_proj.bias'].copy_(pretrained_state_dict['conv_proj.bias'])
+
+        # Dynamically get the number of encoder layers from model_weights
+        encoder_layer_keys = [key for key in pretrained_state_dict.keys() if 'encoder.layers' in key]
+        num_encoder_layers = len(set([key.split('.')[2] for key in encoder_layer_keys]))
+
+        # Update encoder layers
+        for layer in range(num_encoder_layers):
+            state_dict[f'encoder.{layer}.msa_block.layer_norm.weight'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.ln_1.weight']
+            )
+            state_dict[f'encoder.{layer}.msa_block.layer_norm.bias'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.ln_1.bias']
+            )
+            state_dict[f'encoder.{layer}.msa_block.self_attention.in_proj_weight'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.self_attention.in_proj_weight']
+            )
+            state_dict[f'encoder.{layer}.msa_block.self_attention.in_proj_bias'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.self_attention.in_proj_bias']
+            )
+            state_dict[f'encoder.{layer}.msa_block.self_attention.out_proj.weight'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.self_attention.out_proj.weight']
+            )
+            state_dict[f'encoder.{layer}.msa_block.self_attention.out_proj.bias'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.self_attention.out_proj.bias']
+            )
+            state_dict[f'encoder.{layer}.mlp_block.layer_norm.weight'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.ln_2.weight']
+            )
+            state_dict[f'encoder.{layer}.mlp_block.layer_norm.bias'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.ln_2.bias']
+            )
+            state_dict[f'encoder.{layer}.mlp_block.mlp.0.weight'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.mlp.linear_1.weight']
+            )
+            state_dict[f'encoder.{layer}.mlp_block.mlp.0.bias'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.mlp.linear_1.bias']
+            )
+            state_dict[f'encoder.{layer}.mlp_block.mlp.3.weight'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.mlp.linear_2.weight']
+            )
+            state_dict[f'encoder.{layer}.mlp_block.mlp.3.bias'].copy_(
+                pretrained_state_dict[f'encoder.layers.encoder_layer_{layer}.mlp.linear_2.bias']
+            )
+        
+        # Update classifier
+        #state_dict['classifier.0.weight'].copy_(pretrained_state_dict['encoder.ln.weight'])
+        #state_dict['classifier.0.bias'].copy_(pretrained_state_dict['encoder.ln.bias'])
+        #state_dict['classifier.1.weight'].copy_(pretrained_state_dict['heads.weight'])
+        #state_dict['classifier.1.bias'].copy_(pretrained_state_dict['heads.bias'])
+
+        # Reload updated state_dict into the model
+        self.load_state_dict(state_dict)
+
+    def set_params_frozen(self,                          
+                          except_head:bool=True):
+        """
+        Freezes parameters of different components, allowing exceptions.
+
+        Args:        
+            except_head (bool): If True, excludes the classifier head from being frozen.
+        """
+
+        for param in self.embedder.parameters():
+            param.requires_grad = False
+
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+
+        for param in self.classifier.parameters():
+            param.requires_grad = except_head
+
+    # 5. Create a forward() method
+    def forward(self, x):
+
+        # 6. Create patch embedding (equation 1)
+        x = self.embedder(x)
+
+        # 7. Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
+        x = self.encoder(x)
+
+        # 8. Put 0 index logit through classifier (equation 4)
+        x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
+
+        return x
