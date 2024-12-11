@@ -653,7 +653,7 @@ def get_most_wrong_examples(model: torch.nn.Module,
     prediction = y_preds
     prob = y_probs
 
-    len(sample), len(label), len(prediction), len(prob)
+    #len(sample), len(label), len(prediction), len(prob)
     df = pd.DataFrame({'sample': sample, 'label': label, 'prediction': prediction, 'prob': prob})
     df['match'] = df['label'] == df['prediction']
     df_wrong = df[df['match'] == False]
