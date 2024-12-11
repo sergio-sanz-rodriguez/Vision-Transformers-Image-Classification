@@ -1,12 +1,13 @@
 
 # 1. Imports and class names setup
+import os
 import torch
 import json
 import gradio as gr
 from model import create_vitbase_model
 from timeit import default_timer as timer
 from typing import Tuple, Dict
-from torchvision import transforms as v2
+from torchvision.transforms import v2
 
 
 # 2. Specify class names
@@ -32,17 +33,14 @@ vitbase_model = create_vitbase_model(
 )
 
 # 5. Specify manual transforms
-transforms = torchvision.models.ViT_B_16_Weights.DEFAULT.transforms()
-#transforms = v2.Compose([    
-#    v2.Resize((256, 256)),
-#    v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
-#    v2.ToPILImage(),
-#    v2.ToTensor(),
-#    v2.Lambda(to_float32_and_scale),
-##    v2.ToDtype(torch.float32, scale=True),
-#    v2.Normalize(mean=[0.485, 0.456, 0.406],
-#                std=[0.229, 0.224, 0.225]) 
-#])
+transforms = v2.Compose([    
+    v2.Resize((242, 242)),
+    v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
+    v2.Normalize(mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]) 
+])
 
 # 6. Predict function
 def predict(img) -> Tuple[Dict, float]:
@@ -71,14 +69,14 @@ def predict(img) -> Tuple[Dict, float]:
     top_class_description = food_descriptions.get(top_class, "Description not available.")
     
     # Calculate the prediction time
-    pred_time = round(timer() - start_time, 5)
+    pred_time = round(timer() - start_time, 2)
     
     # Return the prediction dictionary and prediction time 
     return pred_classes_and_probs, pred_time, top_class_description
 
 # 7. Configure and design the Gradio App
 # Create title, description, and examples
-title = "TransformEats 101 🥪🥗🥩"
+title = "Transform-Eats Large 🥪🥗🥩"
 description = f"""
 A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
 
@@ -86,8 +84,9 @@ A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food typ
 {', '.join(class_names)}.
 """
 
-article = "Created by Sergio Sanz."
+food_vision_examples = [["examples/" + example] for example in os.listdir("examples")]
 
+article = "Created by Sergio Sanz."
 
 # Create the Gradio demo
 demo = gr.Interface(fn=predict,                                                # mapping function from input to outputs
@@ -99,7 +98,7 @@ demo = gr.Interface(fn=predict,                                                #
                     title=title,                                               # Title of the app
                     description=description,                                   # Brief description of the app
                     article=article,                                           # Created by...
-                    theme="citrus")                                            # Theme
+                    theme="ocean")                                             # Theme
 
 # Launch the demo!
 demo.launch()
