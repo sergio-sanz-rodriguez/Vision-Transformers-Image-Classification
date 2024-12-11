@@ -8,20 +8,20 @@ import torchvision
 import random
 import time
 import numpy as np
-import pandas as pd
+#import pandas as pd
 from typing import Dict, List, Tuple
 from tqdm.auto import tqdm
-from torch.utils.tensorboard import SummaryWriter
-from typing import Optional
-from torchvision import transforms
-from torchvision.transforms import v2
+#from torch.utils.tensorboard import SummaryWriter
+#from typing import Optional
+#from torchvision import transforms
+#from torchvision.transforms import v2
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from pathlib import Path
 from timeit import default_timer as timer
 from PIL import Image
 from torch import GradScaler, autocast
-from sklearn.metrics import precision_recall_curve, classification_report, confusion_matrix
+from sklearn.metrics import precision_recall_curve, classification_report
 
 
 def sec_to_min_sec(seconds):
