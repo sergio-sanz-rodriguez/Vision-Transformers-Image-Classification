@@ -1,6 +1,7 @@
 
 # 1. Imports and class names setup
 import torch
+import json
 import gradio as gr
 from model import create_vitbase_model
 from timeit import default_timer as timer
@@ -20,25 +21,28 @@ with open(food_descriptions_json, 'r') as f:
     food_descriptions = json.load(f)
 
 # 4. Load the ViT-Base transformer
-vitbase_model_name = "vitbase16_5.pth"
+food_vision_model_name_path = "vitbase16_5.pth"
 IMG_SIZE = 224
 num_classes = len(class_names)
 vitbase_model = create_vitbase_model(
-    model_weights_dir=food_vision_model_path,
-    model_weights_name=vitbase_model_name,
+    model_weights_dir=".",
+    model_weights_name=food_vision_model_name_path,
     img_size=IMG_SIZE,
     num_classes=num_classes
 )
 
 # 5. Specify manual transforms
-transforms = v2.Compose([    
-    v2.Resize((256, 256)),
-    v2.RandomCrop((IMG_SIZE, IMG_SIZE)),    
-    v2.ToImage(),
-    v2.ToDtype(torch.float32, scale=True),
-    v2.Normalize(mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]) 
-])
+transforms = torchvision.models.ViT_B_16_Weights.DEFAULT.transforms()
+#transforms = v2.Compose([    
+#    v2.Resize((256, 256)),
+#    v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
+#    v2.ToPILImage(),
+#    v2.ToTensor(),
+#    v2.Lambda(to_float32_and_scale),
+##    v2.ToDtype(torch.float32, scale=True),
+#    v2.Normalize(mean=[0.485, 0.456, 0.406],
+#                std=[0.229, 0.224, 0.225]) 
+#])
 
 # 6. Predict function
 def predict(img) -> Tuple[Dict, float]:

@@ -6,7 +6,6 @@ from torchvision.transforms import v2
 def load_model(model: torch.nn.Module,
                model_weights_dir: str,
                model_weights_name: str):
-               #hidden_units: int):
 
     """Loads a PyTorch model from a target directory.
 
@@ -34,7 +33,7 @@ def load_model(model: torch.nn.Module,
     # Load the model
     print(f"[INFO] Loading model from: {model_path}")
     
-    model.load_state_dict(torch.load(model_path, weights_only=True))
+    model.load_state_dict(torch.load(model_path, weights_only=True, map_location=torch.device('cpu')))
     
     return model
 

@@ -10,8 +10,8 @@ import time
 import numpy as np
 #import pandas as pd
 from typing import Dict, List, Tuple
-from tqdm.auto import tqdm
-#from torch.utils.tensorboard import SummaryWriter
+from tqdm.auto import tqdm 
+from torch.utils.tensorboard import SummaryWriter
 #from typing import Optional
 #from torchvision import transforms
 #from torchvision.transforms import v2
@@ -321,7 +321,7 @@ def train(model: torch.nn.Module,
                test_acc: [0.3400, 0.2973]} 
     """
 
-    # Define colores
+    # Define colors
     BLACK = '\033[30m'  # Black
     BLUE = '\033[34m'   # Blue
     ORANGE = '\033[38;5;214m'  # Orange (using extended colors)
