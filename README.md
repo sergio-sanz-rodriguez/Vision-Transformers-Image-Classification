@@ -36,6 +36,12 @@ Within the scope of this project, two ViT model architecutes have been implement
 * [Model_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Evaluation.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the Vision_Transformer_Modeling.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 
 
-
 ## 4. The ViT Model In Numbers
+
+* Model architecture: ViT-Base
+* Model size: 327 MB
+* Number of parameters: 85.9 million
+* Accuracy on the Food101 dataset: 88%
+* Performance on CPU (Core i9-9900K): 9 images/sec
+* Performance on GPU (RTX 4070): 50 images/sec
 
