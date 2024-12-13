@@ -1,8 +1,3 @@
-"""
-A series of helper functions used throughout the course.
-
-If a function gets defined once and could be used over and over, it'll go in here.
-"""
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -23,8 +18,6 @@ from torchvision import datasets, transforms
 
 # Walk through an image classification directory and find out how many files (images)
 # are in each subdirectory.
-import os
-
 def walk_through_dir(dir_path):
     """
     Walks through dir_path returning its contents.
