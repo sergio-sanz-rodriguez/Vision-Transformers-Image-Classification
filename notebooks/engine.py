@@ -281,6 +281,7 @@ def train(model: torch.nn.Module,
           device: torch.device="cuda" if torch.cuda.is_available() else "cpu", 
           plot_curves: bool=True,
           amp: bool=True,
+          save_best_model: bool=True,
           writer: torch.utils.tensorboard.writer.SummaryWriter=False
           ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
@@ -341,9 +342,14 @@ def train(model: torch.nn.Module,
     if recall_threshold:
         results.update(
             {"train_fpr_at_recall": [],
-            "test_fpr_at_recall": []
+             "test_fpr_at_recall": []
             }
         )
+
+    # Initialize the best validation loss
+    if save_best_model:
+        best_val_loss = float("inf") 
+        best_epoch = -1
 
     # Define epoch progress bar
     #epoch_bar = tqdm(range(epochs), unit="epoch", position=0)
@@ -473,6 +479,17 @@ def train(model: torch.nn.Module,
 
         else:
             pass
+
+        #if epoch % 2 == 0:  # Save checkpoint every 10 epochs
+        #    torch.save(model.state_dict(), f"checkpoint_epoch_{epoch}.pth")
+
+        # Check if this is the best validation loss so far
+        if save_best_model and (test_loss < best_test_loss):
+            best_test_loss = test_loss
+            best_epoch = epoch + 1
+            
+            # Save the model
+            torch.save(model.state_dict(), f"best_model.pth")
 
     # Close the writer
     writer.close() if writer else None
@@ -696,3 +713,113 @@ def create_writer(experiment_name: str,
     return SummaryWriter(log_dir=log_dir)
 
 
+def train_step_v2(model: torch.nn.Module, 
+               dataloader: torch.utils.data.DataLoader, 
+               loss_fn: torch.nn.Module, 
+               optimizer: torch.optim.Optimizer,
+               recall_threshold: float=None,
+               amp: bool=True,
+               accumulation_steps: int = 1,
+               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
+    
+    """Trains a PyTorch model for a single epoch with gradient accumulation.
+
+    Args:
+    model: A PyTorch model to be trained.
+    dataloader: A DataLoader instance for the model to be trained on.
+    loss_fn: A PyTorch loss function to minimize.
+    optimizer: A PyTorch optimizer to help minimize the loss function.
+    amp: Whether to use mixed precision training (True) or not (False).
+    device: A target device to compute on (e.g. "cuda" or "cpu").
+    accumulation_steps: Number of mini-batches to accumulate gradients before an optimizer step.
+
+    Returns:
+    A tuple of training loss and training accuracy metrics.
+    In the form (train_loss, train_accuracy). For example:
+
+    (0.1112, 0.8743)
+    """
+    # Put model in train mode
+    model.train()
+    model.to(device)
+
+    # Initialize the GradScaler for Automatic Mixed Precision (AMP)
+    scaler = GradScaler() if amp else None
+
+    # Setup train loss and train accuracy values
+    train_loss, train_acc = 0, 0    
+    all_preds = []
+    all_labels = []
+
+    # Loop through data loader data batches
+    optimizer.zero_grad()  # Clear gradients before starting
+    for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)):
+        # Send data to target device
+        X, y = X.to(device), y.to(device)
+
+        # Optimize training with amp if available
+        if amp:
+            with autocast(device_type='cuda', dtype=torch.float16):
+                # Forward pass
+                y_pred = model(X)
+                y_pred = y_pred.contiguous()
+                
+                # Calculate loss, normalize by accumulation steps
+                loss = loss_fn(y_pred, y) / accumulation_steps
+            
+            # Backward pass with scaled gradients
+            scaler.scale(loss).backward()
+
+            # Gradient cliping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        else:
+            # Forward pass
+            y_pred = model(X)
+            y_pred = y_pred.contiguous()
+            
+            # Calculate loss, normalize by accumulation steps
+            loss = loss_fn(y_pred, y) / accumulation_steps
+
+            # Backward pass
+            loss.backward()
+
+            # Gradient cliping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        # Perform optimizer step and clear gradients every accumulation_steps
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(dataloader):
+            if amp:
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
+
+            optimizer.zero_grad()
+
+        # Accumulate metrics
+        train_loss += loss.item() * accumulation_steps  # Scale back to original loss
+        y_pred_class = y_pred.argmax(dim=1)
+        train_acc += (y_pred_class == y).sum().item() / len(y_pred)
+
+        if recall_threshold:
+            all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
+            all_labels.append(y.detach().cpu())
+
+    # Adjust metrics to get average loss and accuracy per batch
+    train_loss = train_loss / len(dataloader)
+    train_acc = train_acc / len(dataloader)
+
+    # Final FPR calculation
+    if recall_threshold and all_preds:
+        try:
+            all_labels = torch.cat(all_labels)
+            all_preds = torch.cat(all_preds)
+            fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
+        except Exception as e:
+            logging.error(f"Error calculating final FPR at recall: {e}")
+            fpr_at_recall = None
+    else:
+        fpr_at_recall = None
+
+    return train_loss, train_acc, fpr_at_recall

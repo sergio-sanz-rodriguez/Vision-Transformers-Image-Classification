@@ -51,3 +51,9 @@ Within the scope of this project, two ViT model architecutes have been implement
 * Performance on CPU (Core i9-9900K): 9 images/sec
 * Performance on GPU (RTX 4070): 50 images/sec
 
+## 5. Web application
+
+The following web app has been created on Hugging Face to showcase the ViT model in action. Feel free to try it out!
+
+https://huggingface.co/spaces/sergio-sanz-rodriguez/transform-eats
+
