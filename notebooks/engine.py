@@ -52,7 +52,8 @@ def calculate_accuracy(y_true, y_pred):
         [torch.float]: Accuracy value between y_true and y_pred, e.g. 0.78
     """
 
-    return torch.eq(y_true, y_pred).sum().item()
+    assert len(y_true) == len(y_pred), "Length of y_true and y_pred must be the same."
+    return torch.eq(y_true, y_pred).sum().item() / len(y_true)
 
 def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
 
@@ -256,8 +257,7 @@ def train_step(model: torch.nn.Module,
         train_loss += loss.item()
         #y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
         y_pred_class = y_pred.argmax(dim=1)
-        train_acc += calculate_accuracy(y, y_pred_class)
-        #(y_pred_class == y).sum().item()/len(y_pred)
+        train_acc += calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item()/len(y_pred)
 
         if recall_threshold:
             all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
@@ -369,7 +369,7 @@ def train_step_v2(model: torch.nn.Module,
         # Accumulate metrics
         train_loss += loss.item() * accumulation_steps  # Scale back to original loss
         y_pred_class = y_pred.argmax(dim=1)
-        train_acc += (y_pred_class == y).sum().item() / len(y_pred)
+        train_acc += calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item() / len(y_pred)
 
         if recall_threshold:
             all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
@@ -441,7 +441,7 @@ def test_step(model: torch.nn.Module,
 
             # Calculate and accumulate accuracy
             test_pred_class = test_pred.argmax(dim=1)
-            test_acc += ((test_pred_class == y).sum().item()/len(test_pred))
+            test_acc += calculate_accuracy(y, test_pred_class) #((test_pred_class == y).sum().item()/len(test_pred))
 
             if recall_threshold:
                 all_preds.append(torch.softmax(test_pred, dim=1).detach().cpu())
@@ -754,7 +754,7 @@ def eval_model(model: torch.nn.Module,
             y_pred = model(X)
             loss += loss_fn(y_pred, y)
             y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
-            acc += ((y_pred_class == y).sum().item()/len(y_pred_class))            
+            acc += calculate_accuracy(y, y_pred_class) #((y_pred_class == y).sum().item()/len(y_pred_class))            
         
         # Scale loss and acc
         loss /= len(data_loader)
