@@ -14,9 +14,6 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 from tqdm.auto import tqdm 
 from torch.utils.tensorboard import SummaryWriter
-#from typing import Optional
-#from torchvision import transforms
-#from torchvision.transforms import v2
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -27,12 +24,24 @@ from sklearn.metrics import precision_recall_curve, classification_report
 
 
 def sec_to_min_sec(seconds):
+    
+    """
+    Converts seconds to a formatted string in minutes and seconds.
+
+    Args:
+        seconds (float): The number of seconds to be converted.
+
+    Returns:
+        str: A formatted string representing the time in minutes and seconds.
+    """
+
     minutes = seconds // 60
     remaining_seconds = seconds % 60
     return f"{int(minutes)}m{int(remaining_seconds)}s"
     
 # Calculate accuracy (a classification metric)
 def calculate_accuracy(y_true, y_pred):
+
     """Calculates accuracy between truth labels and predictions.
 
     Args:
@@ -40,13 +49,13 @@ def calculate_accuracy(y_true, y_pred):
         y_pred (torch.Tensor): Predictions to be compared to predictions.
 
     Returns:
-        [torch.float]: Accuracy value between y_true and y_pred, e.g. 78.45
+        [torch.float]: Accuracy value between y_true and y_pred, e.g. 0.78
     """
-    correct = torch.eq(y_true, y_pred).sum().item()
-    acc = (correct / len(y_pred)) * 100
-    return acc
+
+    return torch.eq(y_true, y_pred).sum().item()
 
 def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
+
     """Calculates the False Positive Rate (FPR) at a specified recall threshold.
 
     Args:
@@ -58,6 +67,7 @@ def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
         float: The calculated FPR at the specified recall threshold.
     """
 
+    # Check if recall_threhold is a valid number
     if not (0 <= recall_threshold <= 1):
         raise ValueError("recall_threshold must be between 0 and 1.")
 
@@ -96,19 +106,21 @@ def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
 def save_model(model: torch.nn.Module,
                target_dir: str,
                model_name: str):
+
     """Saves a PyTorch model to a target directory.
 
     Args:
-    model: A target PyTorch model to save.
-    target_dir: A directory for saving the model to.
-    model_name: A filename for the saved model. Should include
-      either ".pth" or ".pt" as the file extension.
+        model: A target PyTorch model to save.
+        target_dir: A directory for saving the model to.
+        model_name: A filename for the saved model. Should include
+        either ".pth" or ".pt" as the file extension.
 
     Example usage:
-    save_model(model=model_0,
-               target_dir="models",
-               model_name="05_going_modular_tingvgg_model.pth")
+        save_model(model=model_0,
+                target_dir="models",
+                model_name="05_going_modular_tingvgg_model.pth")
     """
+
     # Create target directory
     target_dir_path = Path(target_dir)
     target_dir_path.mkdir(parents=True,
@@ -129,19 +141,20 @@ def load_model(model: torch.nn.Module,
     """Loads a PyTorch model from a target directory.
 
     Args:
-    model: A target PyTorch model to load.
-    target_dir: A directory where the model is located.
-    model_name: The name of the model to load.
-      Should include either ".pth" or ".pt" as the file extension.
+        model: A target PyTorch model to load.
+        target_dir: A directory where the model is located.
+        model_name: The name of the model to load.
+        Should include either ".pth" or ".pt" as the file extension.
 
     Example usage:
-    model = load_model(model=model,
-                       target_dir="models",
-                       model_name="model.pth")
+        model = load_model(model=model,
+                        target_dir="models",
+                        model_name="model.pth")
 
     Returns:
     The loaded PyTorch model.
     """
+
     # Create the model directory path
     model_dir_path = Path(target_dir)
 
@@ -163,7 +176,8 @@ def train_step(model: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
                recall_threshold: float=None,
                amp: bool=True,
-               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
+               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
+               ) -> Tuple[float, float, float]:
     
     """Trains a PyTorch model for a single epoch.
 
@@ -172,20 +186,19 @@ def train_step(model: torch.nn.Module,
     pass, loss calculation, optimizer step).
 
     Args:
-    model: A PyTorch model to be trained.
-    dataloader: A DataLoader instance for the model to be trained on.
-    loss_fn: A PyTorch loss function to minimize.
-    optimizer: A PyTorch optimizer to help minimize the loss function.
-    recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1)
-    amp: Whether to use mixed precision training (True) or not (False)
-    device: A target device to compute on (e.g. "cuda" or "cpu").
+        model: A PyTorch model to be trained.
+        dataloader: A DataLoader instance for the model to be trained on.
+        loss_fn: A PyTorch loss function to minimize.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1)
+        amp: Whether to use mixed precision training (True) or not (False)
+        device: A target device to compute on (e.g. "cuda" or "cpu").
 
     Returns:
-    A tuple of training loss and training accuracy metrics.
-    In the form (train_loss, train_accuracy). For example:
-
-    (0.1112, 0.8743)
+        A tuple of training loss, training accuracy, and fpr at recall metrics.
+        In the form (train_loss, train_accuracy, fpr_at_recall). For example: (0.1112, 0.8743, 0.01123)
     """
+
     # Put model in train mode
     model.train()
     model.to(device)
@@ -243,7 +256,8 @@ def train_step(model: torch.nn.Module,
         train_loss += loss.item()
         #y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
         y_pred_class = y_pred.argmax(dim=1)
-        train_acc += (y_pred_class == y).sum().item()/len(y_pred)
+        train_acc += calculate_accuracy(y, y_pred_class)
+        #(y_pred_class == y).sum().item()/len(y_pred)
 
         if recall_threshold:
             all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
@@ -267,27 +281,138 @@ def train_step(model: torch.nn.Module,
 
     return train_loss, train_acc, fpr_at_recall
 
+# This train step function includes gradient accumulation (experimental)
+def train_step_v2(model: torch.nn.Module, 
+                  dataloader: torch.utils.data.DataLoader, 
+                  loss_fn: torch.nn.Module, 
+                  optimizer: torch.optim.Optimizer,
+                  recall_threshold: float=None,
+                  amp: bool=True,
+                  accumulation_steps: int = 1,
+                  device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
+                  ) -> Tuple[float, float, float]:
+    
+    """Trains a PyTorch model for a single epoch with gradient accumulation.
+
+    Args:
+        model: A PyTorch model to be trained.
+        dataloader: A DataLoader instance for the model to be trained on.
+        loss_fn: A PyTorch loss function to minimize.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        amp: Whether to use mixed precision training (True) or not (False).
+        device: A target device to compute on (e.g. "cuda" or "cpu").
+        accumulation_steps: Number of mini-batches to accumulate gradients before an optimizer step.
+            If batch size is 64 and accumulation_steps is 4, gradients are accumulated for 256 mini-batches before an optimizer step.
+
+    Returns:
+        A tuple of training loss, training accuracy, and fpr at recall metrics.
+        In the form (train_loss, train_accuracy, fpr_at_recall). For example: (0.1112, 0.8743, 0.01123)
+    """
+    # Put model in train mode
+    model.train()
+    model.to(device)
+
+    # Initialize the GradScaler for Automatic Mixed Precision (AMP)
+    scaler = GradScaler() if amp else None
+
+    # Setup train loss and train accuracy values
+    train_loss, train_acc = 0, 0    
+    all_preds = []
+    all_labels = []
+
+    # Loop through data loader data batches
+    optimizer.zero_grad()  # Clear gradients before starting
+    for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)):
+        # Send data to target device
+        X, y = X.to(device), y.to(device)
+
+        # Optimize training with amp if available
+        if amp:
+            with autocast(device_type='cuda', dtype=torch.float16):
+                # Forward pass
+                y_pred = model(X)
+                y_pred = y_pred.contiguous()
+                
+                # Calculate loss, normalize by accumulation steps
+                loss = loss_fn(y_pred, y) / accumulation_steps
+            
+            # Backward pass with scaled gradients
+            scaler.scale(loss).backward()
+
+            # Gradient cliping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        else:
+            # Forward pass
+            y_pred = model(X)
+            y_pred = y_pred.contiguous()
+            
+            # Calculate loss, normalize by accumulation steps
+            loss = loss_fn(y_pred, y) / accumulation_steps
+
+            # Backward pass
+            loss.backward()
+
+            # Gradient cliping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        # Perform optimizer step and clear gradients every accumulation_steps
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(dataloader):
+            if amp:
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
+
+            optimizer.zero_grad()
+
+        # Accumulate metrics
+        train_loss += loss.item() * accumulation_steps  # Scale back to original loss
+        y_pred_class = y_pred.argmax(dim=1)
+        train_acc += (y_pred_class == y).sum().item() / len(y_pred)
+
+        if recall_threshold:
+            all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
+            all_labels.append(y.detach().cpu())
+
+    # Adjust metrics to get average loss and accuracy per batch
+    train_loss = train_loss / len(dataloader)
+    train_acc = train_acc / len(dataloader)
+
+    # Final FPR calculation
+    if recall_threshold and all_preds:
+        try:
+            all_labels = torch.cat(all_labels)
+            all_preds = torch.cat(all_preds)
+            fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
+        except Exception as e:
+            logging.error(f"Error calculating final FPR at recall: {e}")
+            fpr_at_recall = None
+    else:
+        fpr_at_recall = None
+
+    return train_loss, train_acc, fpr_at_recall
+
 def test_step(model: torch.nn.Module, 
               dataloader: torch.utils.data.DataLoader, 
               loss_fn: torch.nn.Module,
               recall_threshold: float=None,
-              device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
+              device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
+              ) -> Tuple[float, float, float]:
     """Tests a PyTorch model for a single epoch.
 
     Turns a target PyTorch model to "eval" mode and then performs
     a forward pass on a testing dataset.
 
     Args:
-    model: A PyTorch model to be tested.
-    dataloader: A DataLoader instance for the model to be tested on.
-    loss_fn: A PyTorch loss function to calculate loss on the test data.
-    device: A target device to compute on (e.g. "cuda" or "cpu").
+        model: A PyTorch model to be tested.
+        dataloader: A DataLoader instance for the model to be tested on.
+        loss_fn: A PyTorch loss function to calculate loss on the test data.
+        device: A target device to compute on (e.g. "cuda" or "cpu").
 
     Returns:
-    A tuple of testing loss and testing accuracy metrics.
-    In the form (test_loss, test_accuracy). For example:
-
-    (0.0223, 0.8985)
+        A tuple of training loss, training accuracy, and fpr at recall metrics.
+        In the form (train_loss, train_accuracy, fpr_at_recall). For example: (0.1112, 0.8743, 0.01123)
     """
     # Put model in eval mode
     model.eval() 
@@ -345,13 +470,14 @@ def train(model: torch.nn.Module,
           loss_fn: torch.nn.Module,
           recall_threshold: float=None,
           scheduler: torch.optim.lr_scheduler=None, #Optional[torch.optim.lr_scheduler.LRScheduler]=None,
-          epochs: int=30,
-          device: torch.device="cuda" if torch.cuda.is_available() else "cpu", 
+          epochs: int=30, 
           plot_curves: bool=True,
           amp: bool=True,
           save_best_model: bool=True,
-          writer: SummaryWriter=False
-          ) -> Dict[str, List]:
+          accumulation_steps: int=1,
+          writer: SummaryWriter=False,
+          device: torch.device="cuda" if torch.cuda.is_available() else "cpu"
+          ) -> pd.DataFrame: #Dict[str, List]:
     """Trains and tests a PyTorch model.
 
     Passes a target PyTorch models through train_step() and test_step()
@@ -372,15 +498,16 @@ def train(model: torch.nn.Module,
         optimizer: A PyTorch optimizer to help minimize the loss function.
         loss_fn: A PyTorch loss function to calculate loss on both datasets.
         scheduler: A PyTorch learning rate scheduler to adjust the learning rate during training.
-        epochs: An integer indicating how many epochs to train for.
-        device: A target device to compute on (e.g. "cuda" or "cpu").
+        epochs: An integer indicating how many epochs to train for.        
         plot: A boolean indicating whether to plot the training and testing curves.
-        amp: A boolean indicating whether to use Automatic Mixed Precision (AMP) during training
-        save_best_model: A boolean indicating whether to save the best model during training
+        amp: A boolean indicating whether to use Automatic Mixed Precision (AMP) during training.
+        save_best_model: A boolean indicating whether to save the best model during training.
+        accumulation_steps: An integer indicating how many mini-batches to accumulate gradients before an optimizer step. Default = 1: no accumulation.
         writer: A SummaryWriter() instance to log model results to.
+        device: A target device to compute on (e.g. "cuda" or "cpu").
 
     Returns:
-        A dictionary of training and testing loss as well as training and
+        A dataframe of training and testing loss as well as training and
         testing accuracy metrics. Each metric has a value in a list for 
         each epoch.
         In the form: {
@@ -437,20 +564,34 @@ def train(model: torch.nn.Module,
         model_name_best = model_name.replace(".", "_best.")
         best_test_loss = float("inf") 
 
+    # Check out accumulatiion_steps
+    assert isinstance(accumulation_steps, int) and accumulation_steps >= 1, "accumulation_steps must be an integer greater than or equal to 1"
+
     # Loop through training and testing steps for a number of epochs
     for epoch in range(epochs):
 
         # Perform training step and time it
         print(f"Training epoch {epoch+1}...")
-        train_epoch_start_time = time.time()        
-        train_loss, train_acc, train_fpr_at_recall = train_step(
-            model=model,
-            dataloader=train_dataloader,
-            loss_fn=loss_fn,
-            optimizer=optimizer,
-            recall_threshold=recall_threshold,
-            amp=amp,
-            device=device)
+        train_epoch_start_time = time.time()
+        if accumulation_steps > 1:
+            train_loss, train_acc, train_fpr_at_recall = train_step_v2(
+                model=model,
+                dataloader=train_dataloader,
+                loss_fn=loss_fn,
+                optimizer=optimizer,
+                recall_threshold=recall_threshold,
+                amp=amp,
+                accumulation_steps=accumulation_steps,
+                device=device)
+        else:
+            train_loss, train_acc, train_fpr_at_recall = train_step(
+                model=model,
+                dataloader=train_dataloader,
+                loss_fn=loss_fn,
+                optimizer=optimizer,
+                recall_threshold=recall_threshold,
+                amp=amp,
+                device=device)
         train_epoch_end_time = time.time()
         train_epoch_time = train_epoch_end_time - train_epoch_start_time
 
@@ -586,14 +727,15 @@ def train(model: torch.nn.Module,
     return df_results
 
 def eval_model(model: torch.nn.Module, 
-               data_loader: torch.utils.data.DataLoader, 
+               dataloader: torch.utils.data.DataLoader, 
                loss_fn: torch.nn.Module, 
-               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"):
+               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
+               ) --> Dict[str, float]:
     """Evaluates a given model on a given dataset.
 
     Args:
         model (torch.nn.Module): A PyTorch model capable of making predictions on data_loader.
-        data_loader (torch.utils.data.DataLoader): The target dataset to predict on.
+        dataloader (torch.utils.data.DataLoader): The target dataset to predict on.
         loss_fn (torch.nn.Module): The loss function of model.
         device (str, optional): Target device to compute on. Defaults to device.
 
@@ -606,7 +748,7 @@ def eval_model(model: torch.nn.Module,
     
     model.eval()
     with torch.inference_mode():
-        for X, y in data_loader:
+        for X, y in dataloader:
             # Send data to the target device
             X, y = X.to(device), y.to(device)
             y_pred = model(X)
@@ -625,7 +767,8 @@ def eval_model(model: torch.nn.Module,
 
 def make_predictions(model: torch.nn.Module,
                      dataloader: torch.utils.data.DataLoader,
-                     device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"):
+                     device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
+                     ) -> torch.Tensor:
     """
     Predicts classes for a given dataset using a trained model.
 
@@ -635,7 +778,7 @@ def make_predictions(model: torch.nn.Module,
         device (str, optional): Target device to compute on. Defaults to device.
 
     Returns:
-        (list): All of the predicted class labels.
+        (list): All of the predicted class labels represented by prediction probabilities (softmax)
     """
 
     y_preds = []
@@ -666,13 +809,24 @@ def pred_and_store(model: torch.nn.Module,
                    class_names: List[str], 
                    percent_samples: float = 1.0,
                    seed=42,
-                   device: str = "cuda" if torch.cuda.is_available() else "cpu") -> List[Dict]:
+                   device: str = "cuda" if torch.cuda.is_available() else "cpu"
+                   ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     
     """
-    Returns a list of dictionaries with sample predictions, sample names, prediction probabilities, prediction times, actual labels and prediction classes.
+    Predicts classes for a given dataset using a trained model and stores the per-sample results in dictionaries.
 
     Args:
-        paths: a list of target sample paths
+        model (torch.nn.Module): A trained PyTorch model.
+        test_dir (str): The directory containing the test images.
+        transform (torchvision.transforms): The transformation to apply to the test images.
+        class_names (list): A list of class names.
+        percent_samples (float, optional): The percentage of samples to predict. Defaults to 1.0.
+        seed (int, optional): The random seed for reproducibility. Defaults to 42.
+        device (str, optional): Target device to compute on. Defaults to device.
+
+    Returns:
+        A list of dictionaries with sample predictions, sample names, prediction probabilities, prediction times, actual labels and prediction classes
+        A classification report as a dictionary from sckit-learng.metrics
     """
     # Create a list of test images and checkout existence
     print(f"[INFO] Finding all filepaths ending with '.jpg' in directory: {test_dir}")
@@ -798,113 +952,131 @@ def create_writer(experiment_name: str,
     return SummaryWriter(log_dir=log_dir)
 
 
-def train_step_v2(model: torch.nn.Module, 
-                  dataloader: torch.utils.data.DataLoader, 
-                  loss_fn: torch.nn.Module, 
-                  optimizer: torch.optim.Optimizer,
-                  recall_threshold: float=None,
-                  amp: bool=True,
-                  accumulation_steps: int = 1,
-                  device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
-    
-    """Trains a PyTorch model for a single epoch with gradient accumulation.
+# Grouping all the functions into a single class
+class Trainer:
 
-    Args:
-        model: A PyTorch model to be trained.
-        dataloader: A DataLoader instance for the model to be trained on.
-        loss_fn: A PyTorch loss function to minimize.
-        optimizer: A PyTorch optimizer to help minimize the loss function.
-        amp: Whether to use mixed precision training (True) or not (False).
-        device: A target device to compute on (e.g. "cuda" or "cpu").
-        accumulation_steps: Number of mini-batches to accumulate gradients before an optimizer step.
+    """A class to handle training, evaluation, and predictions for a PyTorch model."""
 
-    Returns:
-        A tuple of training loss and training accuracy metrics.
-        In the form (train_loss, train_accuracy). For example:
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        device: str = "cuda" if torch.cuda.is_available() else "cpu"
+        ):
 
-        (0.1112, 0.8743)
-    """
-    # Put model in train mode
-    model.train()
-    model.to(device)
+        """
+        Initialize the class.
+        
+        Args:
+            model (torch.nn.Module): The PyTorch model to handle. Must be instatiated
+            device (str, optional): Device to use ('cuda' or 'cpu'). If None, it defaults to 'cuda' if available.
+        """
 
-    # Initialize the GradScaler for Automatic Mixed Precision (AMP)
-    scaler = GradScaler() if amp else None
+        self.model = model
+        self.device = device # or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
 
-    # Setup train loss and train accuracy values
-    train_loss, train_acc = 0, 0    
-    all_preds = []
-    all_labels = []
+    def fit(
+        self,
+        *args, **kwargs
+        ):
 
-    # Loop through data loader data batches
-    optimizer.zero_grad()  # Clear gradients before starting
-    for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)):
-        # Send data to target device
-        X, y = X.to(device), y.to(device)
+        """
+        Train the model using the provided arguments.
+        
+        For arguments, refer to the `train` function in engine.py.
+        """
 
-        # Optimize training with amp if available
-        if amp:
-            with autocast(device_type='cuda', dtype=torch.float16):
-                # Forward pass
-                y_pred = model(X)
-                y_pred = y_pred.contiguous()
-                
-                # Calculate loss, normalize by accumulation steps
-                loss = loss_fn(y_pred, y) / accumulation_steps
-            
-            # Backward pass with scaled gradients
-            scaler.scale(loss).backward()
+        return train(
+            self.model,
+            *args, **kwargs
+            )
 
-            # Gradient cliping
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    def save(
+        self,
+        target_dir: str,
+        model_name: str
+        ):
 
-        else:
-            # Forward pass
-            y_pred = model(X)
-            y_pred = y_pred.contiguous()
-            
-            # Calculate loss, normalize by accumulation steps
-            loss = loss_fn(y_pred, y) / accumulation_steps
+        """
+        Save the model using the save_model function.
+        
+        Args:
+            target_dir (str): The directory to save the model in.
+            model_name (str): The name of the file to save the model as.
+        """
 
-            # Backward pass
-            loss.backward()
+        save_model(
+            self.model,
+            target_dir,
+            model_name
+            )
 
-            # Gradient cliping
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    def load(
+        self,
+        target_dir: str,
+        model_name: str
+        ):
 
-        # Perform optimizer step and clear gradients every accumulation_steps
-        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(dataloader):
-            if amp:
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                optimizer.step()
+        """
+        Load the model using the load_model function.
+        
+        Args:
+            target_dir (str): The directory to load the model from.
+            model_name (str): The name of the file to load the model from. This model cotains the hyperparameters.
+        """
 
-            optimizer.zero_grad()
+        self.model = load_model(
+            self.model,
+            target_dir,
+            model_name)
 
-        # Accumulate metrics
-        train_loss += loss.item() * accumulation_steps  # Scale back to original loss
-        y_pred_class = y_pred.argmax(dim=1)
-        train_acc += (y_pred_class == y).sum().item() / len(y_pred)
+    def make_predictions(
+        self,
+        dataloader: torch.utils.data.DataLoader
+        ) -> torch.Tensor:
+        """
+        Generate predictions for the given dataloader.
+        
+        Args:
+            dataloader (DataLoader): The dataloader for prediction.
+        
+        Returns:
+            torch.Tensor: Prediction probabilities for the input data.
+        """
 
-        if recall_threshold:
-            all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
-            all_labels.append(y.detach().cpu())
+        return make_predictions(
+            self.model,
+            dataloader,
+            device=self.device
+            )
 
-    # Adjust metrics to get average loss and accuracy per batch
-    train_loss = train_loss / len(dataloader)
-    train_acc = train_acc / len(dataloader)
-
-    # Final FPR calculation
-    if recall_threshold and all_preds:
-        try:
-            all_labels = torch.cat(all_labels)
-            all_preds = torch.cat(all_preds)
-            fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
-        except Exception as e:
-            logging.error(f"Error calculating final FPR at recall: {e}")
-            fpr_at_recall = None
-    else:
-        fpr_at_recall = None
-
-    return train_loss, train_acc, fpr_at_recall
+    def predict_and_store(
+        self,
+        test_dir: str,
+        transform: torchvision.transforms,
+        class_names: List[str],
+        percent_samples: float = 1.0,
+        seed: int = 42
+        ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Predict on images in a directory and return per-sample results.
+        
+        Args:
+            test_dir (str): Path to test directory with images.
+            transform (Compose): Transformations to apply to images.
+            class_names (List[str]): Class names for predictions.
+            percent_samples (float): Percentage of samples to predict. Defaults to 1.0.
+            seed (int): Random seed for sampling.
+        
+        Returns:
+            Tuple[List[Dict[str, Any]], Dict[str, Any]]: Predictions and classification report.
+        """
+        return pred_and_store(
+            self.model,
+            test_dir,
+            transform,
+            class_names,
+            percent_samples,
+            seed, 
+            device=self.device
+            )
