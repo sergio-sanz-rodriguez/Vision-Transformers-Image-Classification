@@ -2,13 +2,15 @@
 Contains functions for training and testing a PyTorch model.
 """
 
-#!pip install ipywidgets
+import os
+import logging
 import torch
 import torchvision
 import random
 import time
 import numpy as np
-#import pandas as pd
+import pandas as pd
+from datetime import datetime
 from typing import Dict, List, Tuple
 from tqdm.auto import tqdm 
 from torch.utils.tensorboard import SummaryWriter
@@ -30,7 +32,7 @@ def sec_to_min_sec(seconds):
     return f"{int(minutes)}m{int(remaining_seconds)}s"
     
 # Calculate accuracy (a classification metric)
-def accuracy_fn(y_true, y_pred):
+def calculate_accuracy(y_true, y_pred):
     """Calculates accuracy between truth labels and predictions.
 
     Args:
@@ -74,7 +76,7 @@ def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
         y_scores = y_pred_probs[:, class_idx].detach().numpy()
 
         # Compute precision-recall curve
-        precision, recall, thresholds = precision_recall_curve(y_true_bin, y_scores)
+        _, recall, thresholds = precision_recall_curve(y_true_bin, y_scores)
 
         # Find the threshold closest to the desired recall
         idx = np.where(recall >= recall_threshold)[0]
@@ -90,6 +92,69 @@ def calculate_fpr_at_recall(y_true, y_pred_probs, recall_threshold):
         fpr_per_class.append(fpr)
 
     return np.mean(fpr_per_class)  # Average FPR across all classes
+
+def save_model(model: torch.nn.Module,
+               target_dir: str,
+               model_name: str):
+    """Saves a PyTorch model to a target directory.
+
+    Args:
+    model: A target PyTorch model to save.
+    target_dir: A directory for saving the model to.
+    model_name: A filename for the saved model. Should include
+      either ".pth" or ".pt" as the file extension.
+
+    Example usage:
+    save_model(model=model_0,
+               target_dir="models",
+               model_name="05_going_modular_tingvgg_model.pth")
+    """
+    # Create target directory
+    target_dir_path = Path(target_dir)
+    target_dir_path.mkdir(parents=True,
+                          exist_ok=True)
+
+    # Create model save path
+    assert model_name.endswith(".pth") or model_name.endswith(".pt"), "model_name should end with '.pt' or '.pth'"
+    model_save_path = target_dir_path / model_name
+
+    # Save the model state_dict()
+    print(f"[INFO] Saving best model to: {model_save_path}")
+    torch.save(obj=model.state_dict(), f=model_save_path)
+
+def load_model(model: torch.nn.Module,
+               target_dir: str,
+               model_name: str):
+    
+    """Loads a PyTorch model from a target directory.
+
+    Args:
+    model: A target PyTorch model to load.
+    target_dir: A directory where the model is located.
+    model_name: The name of the model to load.
+      Should include either ".pth" or ".pt" as the file extension.
+
+    Example usage:
+    model = load_model(model=model,
+                       target_dir="models",
+                       model_name="model.pth")
+
+    Returns:
+    The loaded PyTorch model.
+    """
+    # Create the model directory path
+    model_dir_path = Path(target_dir)
+
+    # Create the model path
+    assert model_name.endswith(".pth") or model_name.endswith(".pt"), "model_name should end with '.pt' or '.pth'"
+    model_path = model_dir_path / model_name
+
+    # Load the model
+    print(f"[INFO] Loading model from: {model_path}")
+    
+    model.load_state_dict(torch.load(model_path, weights_only=True))
+    
+    return model
 
 
 def train_step(model: torch.nn.Module, 
@@ -111,6 +176,7 @@ def train_step(model: torch.nn.Module,
     dataloader: A DataLoader instance for the model to be trained on.
     loss_fn: A PyTorch loss function to minimize.
     optimizer: A PyTorch optimizer to help minimize the loss function.
+    recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1)
     amp: Whether to use mixed precision training (True) or not (False)
     device: A target device to compute on (e.g. "cuda" or "cpu").
 
@@ -133,7 +199,7 @@ def train_step(model: torch.nn.Module,
     all_labels = []
 
     # Loop through data loader data batches
-    for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)): 
+    for _, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)): 
         #, desc=f"Training epoch {epoch_number}..."):
         # Send data to target device
         X, y = X.to(device), y.to(device)
@@ -235,7 +301,7 @@ def test_step(model: torch.nn.Module,
     # Turn on inference context manager
     with torch.inference_mode():
         # Loop through DataLoader batches
-        for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader), colour='#FF9E2C'):
+        for _, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader), colour='#FF9E2C'):
             #, desc=f"Validating epoch {epoch_number}..."):
             # Send data to target device
             X, y = X.to(device), y.to(device)
@@ -270,7 +336,9 @@ def test_step(model: torch.nn.Module,
     return test_loss, test_acc, fpr_at_recall
 
 # Add writer parameter to train()
-def train(model: torch.nn.Module, 
+def train(model: torch.nn.Module,
+          target_dir: str,
+          model_name: str,
           train_dataloader: torch.utils.data.DataLoader, 
           test_dataloader: torch.utils.data.DataLoader, 
           optimizer: torch.optim.Optimizer,
@@ -282,7 +350,7 @@ def train(model: torch.nn.Module,
           plot_curves: bool=True,
           amp: bool=True,
           save_best_model: bool=True,
-          writer: torch.utils.tensorboard.writer.SummaryWriter=False
+          writer: SummaryWriter=False
           ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
 
@@ -295,31 +363,49 @@ def train(model: torch.nn.Module,
     Stores metrics to specified writer log_dir if present.
 
     Args:
-      model: A PyTorch model to be trained and tested.
-      train_dataloader: A DataLoader instance for the model to be trained on.
-      test_dataloader: A DataLoader instance for the model to be tested on.
-      optimizer: A PyTorch optimizer to help minimize the loss function.
-      loss_fn: A PyTorch loss function to calculate loss on both datasets.
-      scheduler: A PyTorch learning rate scheduler to adjust the learning rate during training.
-      epochs: An integer indicating how many epochs to train for.
-      device: A target device to compute on (e.g. "cuda" or "cpu").
-      plot: A boolean indicating whether to plot the training and testing curves.
-      amp: A boolean indicating whether to use Automatic Mixed Precision (AMP) during training
-      writer: A SummaryWriter() instance to log model results to.
+        model: A PyTorch model to be trained and tested.
+        target_dir: A directory for saving the model to.
+        model_name: A filename for the saved model. Should include
+            either ".pth" or ".pt" as the file extension.
+        train_dataloader: A DataLoader instance for the model to be trained on.
+        test_dataloader: A DataLoader instance for the model to be tested on.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        loss_fn: A PyTorch loss function to calculate loss on both datasets.
+        scheduler: A PyTorch learning rate scheduler to adjust the learning rate during training.
+        epochs: An integer indicating how many epochs to train for.
+        device: A target device to compute on (e.g. "cuda" or "cpu").
+        plot: A boolean indicating whether to plot the training and testing curves.
+        amp: A boolean indicating whether to use Automatic Mixed Precision (AMP) during training
+        save_best_model: A boolean indicating whether to save the best model during training
+        writer: A SummaryWriter() instance to log model results to.
 
     Returns:
-      A dictionary of training and testing loss as well as training and
-      testing accuracy metrics. Each metric has a value in a list for 
-      each epoch.
-      In the form: {train_loss: [...],
-                train_acc: [...],
-                test_loss: [...],
-                test_acc: [...]} 
-      For example if training for epochs=2: 
-              {train_loss: [2.0616, 1.0537],
-               train_acc: [0.3945, 0.3945],
-               test_loss: [1.2641, 1.5706],
-               test_acc: [0.3400, 0.2973]} 
+        A dictionary of training and testing loss as well as training and
+        testing accuracy metrics. Each metric has a value in a list for 
+        each epoch.
+        In the form: {
+            train_loss: [...],
+            train_acc: [...],
+            test_loss: [...],
+            test_acc: [...],
+            train_time: [...],
+            test_time: [...],
+            lr: [...],
+            train_fpr_at_recall: [...],
+            test_fpr_at_recall: [...]
+            } 
+        For example if training for epochs=2: 
+            {
+            train_loss: [2.0616, 1.0537],
+            train_acc: [0.3945, 0.3945],
+            test_loss: [1.2641, 1.5706],
+            test_acc: [0.3400, 0.2973],
+            train_time: [1.1234, 1.5678],
+            test_time: [0.4567, 0.7890],
+            lr: [0.001, 0.0005],
+            train_fpr_at_recall: [0.1234, 0.2345],
+            test_fpr_at_recall: [0.3456, 0.4567]
+            } 
     """
 
     # Define colors
@@ -348,11 +434,8 @@ def train(model: torch.nn.Module,
 
     # Initialize the best validation loss
     if save_best_model:
-        best_val_loss = float("inf") 
-        best_epoch = -1
-
-    # Define epoch progress bar
-    #epoch_bar = tqdm(range(epochs), unit="epoch", position=0)
+        model_name_best = model_name.replace(".", "_best.")
+        best_test_loss = float("inf") 
 
     # Loop through training and testing steps for a number of epochs
     for epoch in range(epochs):
@@ -476,26 +559,31 @@ def train(model: torch.nn.Module,
                                    tag_scalar_dict={"train_fpr_at_recall": train_fpr_at_recall,
                                                     "test_fpr_at_recall": test_fpr_at_recall}, 
                                    global_step=epoch)
-
         else:
             pass
 
-        #if epoch % 2 == 0:  # Save checkpoint every 10 epochs
-        #    torch.save(model.state_dict(), f"checkpoint_epoch_{epoch}.pth")
-
-        # Check if this is the best validation loss so far
+        # Check if this is the best test loss so far and save the model
         if save_best_model and (test_loss < best_test_loss):
             best_test_loss = test_loss
-            best_epoch = epoch + 1
-            
-            # Save the model
-            torch.save(model.state_dict(), f"best_model.pth")
+            save_model(model=model,
+                       target_dir=target_dir,
+                       model_name=model_name_best)
 
     # Close the writer
     writer.close() if writer else None
 
-    # Return the filled results at the end of the epochs
-    return results
+    # Save the model (last epoch)
+    save_model(model=model,
+               target_dir=target_dir,
+               model_name=model_name)
+
+    # Return and save the filled results at the end of the epochs
+    name , _ = model_name.rsplit('.', 1)
+    csv_file_name = f"{name}.csv"
+    df_results = pd.DataFrame(results)
+    df_results.to_csv(os.path.join(target_dir, csv_file_name), index=False)
+
+    return df_results
 
 def eval_model(model: torch.nn.Module, 
                data_loader: torch.utils.data.DataLoader, 
@@ -584,7 +672,7 @@ def pred_and_store(model: torch.nn.Module,
     Returns a list of dictionaries with sample predictions, sample names, prediction probabilities, prediction times, actual labels and prediction classes.
 
     Args:
-    paths: a list of target sample paths
+        paths: a list of target sample paths
     """
     # Create a list of test images and checkout existence
     print(f"[INFO] Finding all filepaths ending with '.jpg' in directory: {test_dir}")
@@ -696,9 +784,6 @@ def create_writer(experiment_name: str,
         # The above is the same as:
         writer = SummaryWriter(log_dir="runs/2022-06-04/data_10_percent/effnetb2/5_epochs/")
     """
-    from datetime import datetime
-    import os
-    from torch.utils.tensorboard import SummaryWriter
 
     # Get timestamp of current date (all experiments on certain day live in same folder)
     timestamp = datetime.now().strftime("%Y-%m-%d") # returns current date in YYYY-MM-DD format
@@ -714,30 +799,30 @@ def create_writer(experiment_name: str,
 
 
 def train_step_v2(model: torch.nn.Module, 
-               dataloader: torch.utils.data.DataLoader, 
-               loss_fn: torch.nn.Module, 
-               optimizer: torch.optim.Optimizer,
-               recall_threshold: float=None,
-               amp: bool=True,
-               accumulation_steps: int = 1,
-               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
+                  dataloader: torch.utils.data.DataLoader, 
+                  loss_fn: torch.nn.Module, 
+                  optimizer: torch.optim.Optimizer,
+                  recall_threshold: float=None,
+                  amp: bool=True,
+                  accumulation_steps: int = 1,
+                  device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") -> Tuple[float, float]:
     
     """Trains a PyTorch model for a single epoch with gradient accumulation.
 
     Args:
-    model: A PyTorch model to be trained.
-    dataloader: A DataLoader instance for the model to be trained on.
-    loss_fn: A PyTorch loss function to minimize.
-    optimizer: A PyTorch optimizer to help minimize the loss function.
-    amp: Whether to use mixed precision training (True) or not (False).
-    device: A target device to compute on (e.g. "cuda" or "cpu").
-    accumulation_steps: Number of mini-batches to accumulate gradients before an optimizer step.
+        model: A PyTorch model to be trained.
+        dataloader: A DataLoader instance for the model to be trained on.
+        loss_fn: A PyTorch loss function to minimize.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        amp: Whether to use mixed precision training (True) or not (False).
+        device: A target device to compute on (e.g. "cuda" or "cpu").
+        accumulation_steps: Number of mini-batches to accumulate gradients before an optimizer step.
 
     Returns:
-    A tuple of training loss and training accuracy metrics.
-    In the form (train_loss, train_accuracy). For example:
+        A tuple of training loss and training accuracy metrics.
+        In the form (train_loss, train_accuracy). For example:
 
-    (0.1112, 0.8743)
+        (0.1112, 0.8743)
     """
     # Put model in train mode
     model.train()
