@@ -1000,12 +1000,12 @@ class Trainer:
         Args:
             model (torch.nn.Module): The PyTorch model to handle. Must be instatiated
             save_best_model (bool): Save the best model based on a criterion mode
-            mode: criterion mode: "min" (validation loss), "max" (validation accuracy)
+            mode: criterion mode: "min" (validation loss), "max" (validation accuracy), "all" (all epochs to be saved)
             device (str, optional): Device to use ('cuda' or 'cpu'). If None, it defaults to 'cuda' if available.
         """
 
         # Check mode
-        valid_mode = {"min", "max"}
+        valid_mode = {"min", "max", "all"}
         assert mode in valid_mode, f"Invalid mode value: {mode}. Must be one of {valid_mode}"
 
         # Initialize self variables
@@ -1741,15 +1741,20 @@ class Trainer:
                     save_model(
                         model=self.model,
                         target_dir=target_dir,
-                        model_name=model_name_best)
+                        model_name=model_name.replace(".", "_best."))
                     self.model_best.load_state_dict(self.model.state_dict())
                 elif (self.mode == "max") and (test_acc > best_test_acc):
                     best_test_acc = test_acc
                     save_model(
                         model=self.model,
                         target_dir=target_dir,
-                        model_name=model_name_best)
+                        model_name=model_name.replace(".", "_best."))
                     self.model_best.load_state_dict(self.model.state_dict())
+                else:
+                    save_model(
+                        model=self.model,
+                        target_dir=target_dir,
+                        model_name=model_name.replace(".", f"_epoch{epoch+1}."))
 
         # Close the writer
         writer.close() if writer else None
@@ -1963,111 +1968,3 @@ class Trainer:
             
         print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
         return SummaryWriter(log_dir=log_dir)
-
-
-
-#    def fit(
-#        self,
-#        *args, **kwargs
-#        ):
-
-#        """
-#        Train the model using the provided arguments.
-        
-#        For arguments, refer to the `train` function in engine.py.
-#        """
-
-#        return train(
-#            self.model,
-#            *args, **kwargs
-#            )
-
-#    def save(
-#        self,
-#        target_dir: str,
-#        model_name: str
-#        ):
-
-#        """
-#        Save the model using the save_model function.
-        
-#        Args:
-#            target_dir (str): The directory to save the model in.
-#            model_name (str): The name of the file to save the model as.
-#        """
-
-#        save_model(
-#            self.model,
-#            target_dir,
-#            model_name
-#            )
-
-#    def load(
-#        self,
-#        target_dir: str,
-#        model_name: str
-#        ):
-
-#        """
-#        Load the model using the load_model function.
-        
-#        Args:
-#            target_dir (str): The directory to load the model from.
-#            model_name (str): The name of the file to load the model from. This model cotains the hyperparameters.
-#        """
-
-#        self.model = load_model(
-#            self.model,
-#            target_dir,
-#            model_name)
-
-#    def predict(
-#        self,
-#        dataloader: torch.utils.data.DataLoader
-#        ) -> torch.Tensor:
-#        """
-#        Generate predictions for the given dataloader.
-        
-#        Args:
-#            dataloader (DataLoader): The dataloader for prediction.
-        
-#        Returns:
-#            torch.Tensor: Prediction probabilities for the input data.
-#        """
-
-#        return predict(
-#            self.model,
-#            dataloader,
-#            device=self.device
-#            )
-
-#    def predict_and_store(
-#        self,
-#        test_dir: str,
-#        transform: torchvision.transforms,
-#        class_names: List[str],
-#        percent_samples: float = 1.0,
-#        seed: int = 42
-#        ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-#        """
-#        Predict on images in a directory and return per-sample results.
-#        
-#        Args:
-#            test_dir (str): Path to test directory with images.
-#            transform (Compose): Transformations to apply to images.
-#            class_names (List[str]): Class names for predictions.
-#            percent_samples (float): Percentage of samples to predict. Defaults to 1.0.
-#            seed (int): Random seed for sampling.
-#        
-#        Returns:
-#            Tuple[List[Dict[str, Any]], Dict[str, Any]]: Predictions and classification report.
-#        """
-#        return pred_and_store(
-#            self.model,
-#            test_dir,
-#            transform,
-#            class_names,
-#            percent_samples,
-#            seed, 
-#            device=self.device
-#            )
