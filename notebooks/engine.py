@@ -805,6 +805,10 @@ def predict(model: torch.nn.Module,
         (list): All of the predicted class labels represented by prediction probabilities (softmax)
     """
 
+    # Check output_max
+    valid_output_types = {"softmax", "argmax", "logits"}
+    assert output_type in valid_output_types, f"Invalid output_max value: {output_type}. Must be one of {valid_output_types}"
+
     y_preds = []
     model.eval()
     model.to(device)
@@ -988,7 +992,7 @@ class Trainer:
     def __init__(
         self,
         model: torch.nn.Module,
-        save_best_model: bool=True,
+        save_best_model: bool=False,
         mode: str="min",
         device: str="cuda" if torch.cuda.is_available() else "cpu"
         ):
@@ -1014,13 +1018,10 @@ class Trainer:
         self.model.to(self.device)
         self.save_best_model = save_best_model
         self.mode = mode
-        if save_best_model:
-            self.model_best = copy.deepcopy(model)            
-            self.model_best.load_state_dict(model.state_dict())
-            self.model_best.to(self.device)
-        else:
-            self.model_best = None
-    
+        self.model_best = None
+        self.model_epoch = None
+
+    @staticmethod
     def sec_to_min_sec(seconds):
     
         """
@@ -1038,6 +1039,7 @@ class Trainer:
         return f"{int(minutes)}m{int(remaining_seconds)}s"
     
     # Calculate accuracy (a classification metric)
+    @staticmethod
     def calculate_accuracy(
         y_true,
         y_pred):
@@ -1055,6 +1057,7 @@ class Trainer:
         assert len(y_true) == len(y_pred), "Length of y_true and y_pred must be the same."
         return torch.eq(y_true, y_pred).sum().item() / len(y_true)
 
+    @staticmethod
     def calculate_fpr_at_recall(
         y_true,
         y_pred_probs,
@@ -1107,6 +1110,7 @@ class Trainer:
 
         return np.mean(fpr_per_class)  # Average FPR across all classes
 
+    @staticmethod
     def save(
         model: torch.nn.Module,
         target_dir: str,
@@ -1136,9 +1140,10 @@ class Trainer:
         model_save_path = target_dir_path / model_name
 
         # Save the model state_dict()
-        print(f"[INFO] Saving best model to: {model_save_path}")
-        torch.save(obj=self.model.state_dict(), f=model_save_path)
+        print(f"[INFO] Saving model to: {model_save_path}")
+        torch.save(obj=model.state_dict(), f=model_save_path)
 
+    @staticmethod
     def load(
         model: torch.nn.Module,
         target_dir: str,
@@ -1176,14 +1181,13 @@ class Trainer:
         return model
 
     def train_step(
-        model: torch.nn.Module,
+        self,
         dataloader: torch.utils.data.DataLoader, 
         loss_fn: torch.nn.Module, 
         optimizer: torch.optim.Optimizer,
         recall_threshold: float=None,
         amp: bool=True,
         enable_grad_clipping=True,
-        device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
         ) -> Tuple[float, float, float]:
         
         """Trains a PyTorch model for a single epoch.
@@ -1193,7 +1197,6 @@ class Trainer:
         pass, loss calculation, optimizer step).
 
         Args:
-            model: A PyTorch model to be trained and tested.
             dataloader: A DataLoader instance for the model to be trained on.
             loss_fn: A PyTorch loss function to minimize.
             optimizer: A PyTorch optimizer to help minimize the loss function.
@@ -1273,7 +1276,7 @@ class Trainer:
             train_loss += loss.item()
             #y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
             y_pred_class = y_pred.argmax(dim=1)
-            train_acc += calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item()/len(y_pred)
+            train_acc += self.calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item()/len(y_pred)
 
             if recall_threshold:
                 all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
@@ -1288,7 +1291,7 @@ class Trainer:
             try:
                 all_labels = torch.cat(all_labels)
                 all_preds = torch.cat(all_preds)
-                fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
+                fpr_at_recall = self.calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
             except Exception as e:
                 logging.error(f"Error calculating final FPR at recall: {e}")
                 fpr_at_recall = None
@@ -1299,7 +1302,7 @@ class Trainer:
 
     # This train step function includes gradient accumulation (experimental)
     def train_step_v2(
-        model: torch.nn.Module, 
+        self,
         dataloader: torch.utils.data.DataLoader, 
         loss_fn: torch.nn.Module, 
         optimizer: torch.optim.Optimizer,
@@ -1307,13 +1310,11 @@ class Trainer:
         amp: bool=True,
         enable_grad_clipping=True,
         accumulation_steps: int = 1,
-        device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
         ) -> Tuple[float, float, float]:
     
         """Trains a PyTorch model for a single epoch with gradient accumulation.
 
         Args:
-            model: A PyTorch model to be trained and tested.
             dataloader: A DataLoader instance for the model to be trained on.
             loss_fn: A PyTorch loss function to minimize.
             optimizer: A PyTorch optimizer to help minimize the loss function.
@@ -1327,8 +1328,8 @@ class Trainer:
             In the form (train_loss, train_accuracy, fpr_at_recall). For example: (0.1112, 0.8743, 0.01123)
         """
         # Put model in train mode
-        model.train()
-        model.to(device)
+        self.model.train()
+        self.model.to(self.device)
 
         # Initialize the GradScaler for Automatic Mixed Precision (AMP)
         scaler = GradScaler() if amp else None
@@ -1349,7 +1350,7 @@ class Trainer:
             if amp:
                 with autocast(device_type='cuda', dtype=torch.float16):
                     # Forward pass
-                    y_pred = model(X)
+                    y_pred = self.model(X)
                     y_pred = y_pred.contiguous()
                     
                     # Calculate loss, normalize by accumulation steps
@@ -1360,11 +1361,11 @@ class Trainer:
 
                 # Gradient cliping
                 if enable_grad_clipping:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             else:
                 # Forward pass
-                y_pred = model(X)
+                y_pred = self.model(X)
                 y_pred = y_pred.contiguous()
                 
                 # Calculate loss, normalize by accumulation steps
@@ -1375,7 +1376,7 @@ class Trainer:
 
                 # Gradient cliping
                 if enable_grad_clipping:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             # Perform optimizer step and clear gradients every accumulation_steps
             if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(dataloader):
@@ -1390,7 +1391,7 @@ class Trainer:
             # Accumulate metrics
             train_loss += loss.item() * accumulation_steps  # Scale back to original loss
             y_pred_class = y_pred.argmax(dim=1)
-            train_acc += calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item() / len(y_pred)
+            train_acc += self.calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item() / len(y_pred)
 
             if recall_threshold:
                 all_preds.append(torch.softmax(y_pred, dim=1).detach().cpu())
@@ -1405,7 +1406,7 @@ class Trainer:
             try:
                 all_labels = torch.cat(all_labels)
                 all_preds = torch.cat(all_preds)
-                fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
+                fpr_at_recall = self.calculate_fpr_at_recall(all_labels, all_preds, recall_threshold)
             except Exception as e:
                 logging.error(f"Error calculating final FPR at recall: {e}")
                 fpr_at_recall = None
@@ -1415,11 +1416,10 @@ class Trainer:
         return train_loss, train_acc, fpr_at_recall
 
     def test_step(
-        model: torch.nn.Module,
+        self,
         dataloader: torch.utils.data.DataLoader, 
         loss_fn: torch.nn.Module,
         recall_threshold: float=None,
-        device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
         ) -> Tuple[float, float, float]:
 
         """Tests a PyTorch model for a single epoch.
@@ -1428,7 +1428,6 @@ class Trainer:
         a forward pass on a testing dataset.
 
         Args:
-            model: A PyTorch model to be trained and tested.
             dataloader: A DataLoader instance for the model to be tested on.
             loss_fn: A PyTorch loss function to calculate loss on the test data.
             recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1)
@@ -1439,8 +1438,8 @@ class Trainer:
         """
 
         # Put model in eval mode
-        model.eval() 
-        model.to(self.device)
+        self.model.eval() 
+        self.model.to(self.device)
 
         # Setup test loss and test accuracy values
         test_loss, test_acc = 0, 0
@@ -1456,7 +1455,7 @@ class Trainer:
                 X, y = X.to(self.device), y.to(self.device)
 
                 # 1. Forward pass
-                test_pred = model(X)
+                test_pred = self.model(X)
                 test_pred = test_pred.contiguous()
 
                 # 2. Calculate and accumulate loss
@@ -1465,7 +1464,7 @@ class Trainer:
 
                 # Calculate and accumulate accuracy
                 test_pred_class = test_pred.argmax(dim=1)
-                test_acc += calculate_accuracy(y, test_pred_class) #((test_pred_class == y).sum().item()/len(test_pred))
+                test_acc += self.calculate_accuracy(y, test_pred_class) #((test_pred_class == y).sum().item()/len(test_pred))
 
                 if recall_threshold:
                     all_preds.append(torch.softmax(test_pred, dim=1).detach().cpu())
@@ -1480,7 +1479,7 @@ class Trainer:
         all_preds = torch.cat(all_preds)
 
         # Calculate FPR at specified recall threshold
-        fpr_at_recall = calculate_fpr_at_recall(all_labels, all_preds, recall_threshold) if recall_threshold else None
+        fpr_at_recall = self.calculate_fpr_at_recall(all_labels, all_preds, recall_threshold) if recall_threshold else None
 
         return test_loss, test_acc, fpr_at_recall
 
@@ -1533,6 +1532,7 @@ class Trainer:
             testing accuracy metrics. Each metric has a value in a list for 
             each epoch.
             In the form: {
+                epoch: [...],
                 train_loss: [...],
                 train_acc: [...],
                 test_loss: [...],
@@ -1545,6 +1545,7 @@ class Trainer:
                 } 
             For example if training for epochs=2: 
                 {
+                epoch: [ 1, 2].
                 train_loss: [2.0616, 1.0537],
                 train_acc: [0.3945, 0.3945],
                 test_loss: [1.2641, 1.5706],
@@ -1566,6 +1567,7 @@ class Trainer:
 
         # Create empty results dictionary
         results = {
+            "epoch": [],
             "train_loss": [],
             "train_acc": [],
             "test_loss": [],
@@ -1581,11 +1583,23 @@ class Trainer:
                 }
             )
 
-        # Initialize the best validation loss
+        
+        # Initialize the best model and model_epoch list based on the specified mode.
         if self.save_best_model:
-            model_name_best = model_name.replace(".", f"_best.")            
-            best_test_loss = float("inf") 
-            best_test_acc = 0.0
+            if (self.mode == "min") or (self.mode == "max"):
+                self.model_best = copy.deepcopy(self.model)                            
+                self.model_best.to(self.device)
+                model_name_best = model_name.replace(".", f"_best.")            
+                best_test_loss = float("inf") 
+                best_test_acc = 0.0
+            else:
+                self.model_epoch = []
+                for k in range(epochs):
+                    self.model_epoch.append(copy.deepcopy(self.model))
+                    self.model_epoch[k].to(self.device)
+        else:
+            self.model_best = None
+            self.model_epoch = None
 
         # Check out accumulation_steps
         assert isinstance(accumulation_steps, int) and accumulation_steps >= 1, "accumulation_steps must be an integer greater than or equal to 1"
@@ -1600,8 +1614,7 @@ class Trainer:
             print(f"Training epoch {epoch+1}...")
             train_epoch_start_time = time.time()
             if accumulation_steps > 1:
-                train_loss, train_acc, train_fpr_at_recall = train_step_v2(
-                    model=self.model,
+                train_loss, train_acc, train_fpr_at_recall = self.train_step_v2(
                     dataloader=train_dataloader,
                     loss_fn=loss_fn,
                     optimizer=optimizer,
@@ -1609,18 +1622,15 @@ class Trainer:
                     amp=amp,
                     enable_grad_clipping=enable_grad_clipping,
                     accumulation_steps=accumulation_steps,
-                    device=self.device,
                     )
             else:
-                train_loss, train_acc, train_fpr_at_recall = train_step(
-                    model=self.model,
+                train_loss, train_acc, train_fpr_at_recall = self.train_step(
                     dataloader=train_dataloader,
                     loss_fn=loss_fn,
                     optimizer=optimizer,
                     recall_threshold=recall_threshold,
                     amp=amp,
                     enable_grad_clipping=enable_grad_clipping,
-                    device=self.device
                     )
             train_epoch_end_time = time.time()
             train_epoch_time = train_epoch_end_time - train_epoch_start_time
@@ -1628,12 +1638,10 @@ class Trainer:
             # Perform test step and time it
             print(f"Validating epoch {epoch+1}...")
             test_epoch_start_time = time.time()
-            test_loss, test_acc, test_fpr_at_recall = test_step(
-                model=self.model,
+            test_loss, test_acc, test_fpr_at_recall = self.test_step(
                 dataloader=test_dataloader,
                 loss_fn=loss_fn,
                 recall_threshold=recall_threshold,                             
-                device=self.device
                 )
             test_epoch_end_time = time.time()
             test_epoch_time = test_epoch_end_time - test_epoch_start_time
@@ -1651,15 +1659,16 @@ class Trainer:
                 f"{BLUE}train_loss: {train_loss:.4f} {BLACK}| "
                 f"{BLUE}train_acc: {train_acc:.4f} {BLACK}| "
                 f"{BLUE}fpr_at_recall: {train_fpr_at_recall if recall_threshold else 0:.4f} {BLACK}| "
-                f"{BLUE}train_time: {sec_to_min_sec(train_epoch_time)} {BLACK}| "            
+                f"{BLUE}train_time: {self.sec_to_min_sec(train_epoch_time)} {BLACK}| "            
                 f"{ORANGE}test_loss: {test_loss:.4f} {BLACK}| "
                 f"{ORANGE}test_acc: {test_acc:.4f} {BLACK}| "
                 f"{ORANGE}fpr_at_recall: {test_fpr_at_recall if recall_threshold else 0:.4f} {BLACK}| "
-                f"{ORANGE}test_time: {sec_to_min_sec(test_epoch_time)} {BLACK}| "
+                f"{ORANGE}test_time: {self.sec_to_min_sec(test_epoch_time)} {BLACK}| "
                 f"{GREEN}lr: {lr:.10f}"
             )
         
             # Update results dictionary
+            results["epoch"].append(epoch+1)
             results["train_loss"].append(train_loss)
             results["train_acc"].append(train_acc)
             results["test_loss"].append(test_loss)
@@ -1734,33 +1743,36 @@ class Trainer:
             else:
                 pass
 
-            # Check if this is the best test loss so far and save the model
+            
+            # Update the best model and model_epoch list based on the specified mode.
+
             if self.save_best_model:                
                 if (self.mode == "min") and (test_loss < best_test_loss):
                     best_test_loss = test_loss
-                    save_model(
+                    self.save(
                         model=self.model,
                         target_dir=target_dir,
                         model_name=model_name.replace(".", "_best."))
                     self.model_best.load_state_dict(self.model.state_dict())
                 elif (self.mode == "max") and (test_acc > best_test_acc):
                     best_test_acc = test_acc
-                    save_model(
+                    self.save(
                         model=self.model,
                         target_dir=target_dir,
                         model_name=model_name.replace(".", "_best."))
                     self.model_best.load_state_dict(self.model.state_dict())
-                else:
-                    save_model(
+                elif self.mode == "all":
+                    self.save(
                         model=self.model,
                         target_dir=target_dir,
                         model_name=model_name.replace(".", f"_epoch{epoch+1}."))
+                    self.model_epoch[k].load_state_dict(self.model.state_dict())
 
         # Close the writer
         writer.close() if writer else None
 
         # Save the model (last epoch)
-        save_model(
+        self.save(
             model=self.model,
             target_dir=target_dir,
             model_name=model_name)
@@ -1776,6 +1788,7 @@ class Trainer:
     def predict(
         self,
         dataloader: torch.utils.data.DataLoader,
+        model_state: str="last",
         output_type: str="softmax",        
         ) -> torch.Tensor:
 
@@ -1783,7 +1796,7 @@ class Trainer:
         Predicts classes for a given dataset using a trained model.
 
         Args:
-            model (torch.nn.Module): A trained PyTorch model.
+            model_state: specifies the model to use for making predictions
             dataloader (torch.utils.data.DataLoader): The dataset to predict on.
             output_type (str): The type of output to return. Either "softmax", "logits", or "argmax".            
 
@@ -1791,13 +1804,37 @@ class Trainer:
             (list): All of the predicted class labels represented by prediction probabilities (softmax)
         """
  
+        # Check model to use
+        valid_models = {"last", "best"}
+        assert model_state in valid_models or isinstance(model_state, int), f"Invalid model value: {model_state}. Must be one of {valid_models} or an integer."
+
+        if model_state == "last":
+            model = self.model
+        elif model_state == "best":
+            if self.model_best is None:
+                print(f"[INFO] Model best not found, using last model for prediction.")
+                model = self.model
+            else:
+                model = self.model_best
+        elif isinstance(model_state, int):
+            if self.model_epoch is None:
+                print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                model = self.model
+            else:
+                if model_state > len(self.model_epoch):
+                    print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                    model = self.model
+                else:
+                    model = self.model_epoch[model_state-1]            
+
+
         # Check output_max
         valid_output_types = {"softmax", "argmax", "logits"}
-        assert output_type in valid_output_types in f"Invalid output_max value: {output_max}. Must be one of {valid_output_types}"
+        assert output_type in valid_output_types, f"Invalid output_max value: {output_type}. Must be one of {valid_output_types}"
 
         y_preds = []
-        self.model.eval()
-        self.model.to(self.device)
+        model.eval()
+        model.to(self.device)
         with torch.inference_mode():
             for X, y in tqdm(dataloader, desc="Making predictions"):
 
@@ -1805,7 +1842,7 @@ class Trainer:
                 X, y = X.to(self.device), y.to(self.device)
                 
                 # Do the forward pass
-                y_logit = self.model(X)
+                y_logit = model(X)
 
                 if output_type == "softmax":
                     y_pred = torch.softmax(y_logit, dim=1)
@@ -1825,6 +1862,7 @@ class Trainer:
         test_dir: str, 
         transform: torchvision.transforms, 
         class_names: List[str], 
+        model_state: str="last",
         percent_samples: float=1.0,
         seed=42,        
         ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -1833,7 +1871,7 @@ class Trainer:
         Predicts classes for a given dataset using a trained model and stores the per-sample results in dictionaries.
 
         Args:
-            model (torch.nn.Module): A trained PyTorch model.
+            model_state: specifies the model to use for making predictions. "last" (default), "best", an integer
             test_dir (str): The directory containing the test images.
             transform (torchvision.transforms): The transformation to apply to the test images.
             class_names (list): A list of class names.
@@ -1844,6 +1882,30 @@ class Trainer:
             A list of dictionaries with sample predictions, sample names, prediction probabilities, prediction times, actual labels and prediction classes
             A classification report as a dictionary from sckit-learng.metrics
         """
+
+        # Check model to use
+        valid_models = {"last", "best"}
+        assert model_state in valid_models or isinstance(model_state, int), f"Invalid model value: {model_state}. Must be one of {valid_models} or an integer."
+
+
+        if model_state == "last":
+            model = self.model
+        elif model_state == "best":
+            if self.model_best is None:
+                print(f"[INFO] Model best not found, using last model for prediction.")
+                model = self.model
+            else:
+                model = self.model_best
+        elif isinstance(model_state, int):
+            if self.model_epoch is None:
+                print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                model = self.model
+            else:
+                if model_state > len(self.model_epoch):
+                    print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                    model = self.model
+                else:
+                    model = self.model_epoch[model_state-1]
 
         # Create a list of test images and checkout existence
         print(f"[INFO] Finding all filepaths ending with '.jpg' in directory: {test_dir}")
@@ -1889,12 +1951,12 @@ class Trainer:
             transformed_image = transform(img).unsqueeze(0).to(self.device) 
             
             # Prepare model for inference by sending it to target device and turning on eval() mode
-            self.model.to(self.device)
-            self.model.eval()
+            model.to(self.device)
+            model.eval()
             
             # Get prediction probability, predicition label and prediction class
             with torch.inference_mode():
-                pred_logit = self.model(transformed_image) # perform inference on target sample 
+                pred_logit = model(transformed_image) # perform inference on target sample 
                 #pred_logit = pred_logit.contiguous()
                 pred_prob = torch.softmax(pred_logit, dim=1) # turn logits into prediction probabilities
                 pred_label = torch.argmax(pred_prob, dim=1) # turn prediction probabilities into prediction label
@@ -1929,6 +1991,7 @@ class Trainer:
         # Return list of prediction dictionaries
         return pred_list, classification_report_dict
 
+    @staticmethod
     def create_writer(
         experiment_name: str, 
         model_name: str, 
