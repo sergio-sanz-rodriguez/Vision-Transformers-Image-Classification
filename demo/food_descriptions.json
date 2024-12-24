@@ -100,5 +100,5 @@
     "tiramisu": "Italian dessert with coffee-soaked ladyfingers, mascarpone cheese, and cocoa powder.",
     "tuna_tartare": "Finely diced raw tuna, often mixed with soy sauce and served as an appetizer.",
     "waffles": "Batter-based dish cooked in a grid pattern, served with syrup, fruit, or whipped cream.",
-    "unknown": "No sufficient confidence to classify the picture."
+    "unknown": "No sufficient confidence to classify the image."
 }
