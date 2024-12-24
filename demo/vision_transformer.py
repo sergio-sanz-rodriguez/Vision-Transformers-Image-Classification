@@ -1,7 +1,9 @@
 import torch
 import torchvision
+import torch._dynamo
 from torch import nn
 from torch.nn.init import trunc_normal_
+
 
 # Implementation of a vision transformer following the paper "AN IMAGE IS WORTH 16X16 WORDS: TRANSFORMERS FOR IMAGE RECOGNITION AT SCALE"
 
@@ -13,7 +15,7 @@ class PatchEmbedding(nn.Module):
         patch_size (int): Size of patches to convert input image into. Defaults to 16.
         emb_dim (int): Size of embedding to turn image into. Defaults to 768.
     """
-    # 1. Initialize the class with appropriate variables
+    # Initialize the class with appropriate variables
     def __init__(self,
                  img_size:int=224,
                  in_channels:int=3,
@@ -22,50 +24,50 @@ class PatchEmbedding(nn.Module):
                  emb_dropout:float=0.1):
         super().__init__()
 
-        # 2. Make the image size is divisble by the patch size
+        # Make the image size is divisble by the patch size
         assert img_size % patch_size == 0, f"Image size must be divisible by patch size, image size: {img_size}, patch size: {patch_size}."
 
-        # 3. Create a layer to turn an image into patches
+        # Create a layer to turn an image into patches
         self.conv_proj = nn.Conv2d(in_channels=in_channels,
                                    out_channels=emb_dim,
                                    kernel_size=patch_size,
                                    stride=patch_size,
                                    padding=0)
 
-        # 4. Create a layer to flatten the patch feature maps into a single dimension
+        # Create a layer to flatten the patch feature maps into a single dimension
         self.flatten = nn.Flatten(start_dim=2, # only flatten the feature map dimensions into a single vector. dim=0 is the batch size, dim=1 is the embedding dimension.
                                   end_dim=3)
         
-        # 5. Token embedding class
+        # Token embedding class
         self.class_token = trunc_normal_(nn.Parameter(torch.zeros(1, 1, emb_dim), requires_grad=True), std=0.02)
                        
-        # 6. Position embedding class
+        # Position embedding class
         num_patches = (img_size * img_size) // patch_size**2
         self.pos_embedding = trunc_normal_(nn.Parameter(torch.zeros(1, num_patches+1, emb_dim), requires_grad=True), std=0.02)
         
-        # 7. Create embedding dropout value
+        # Create embedding dropout value
         self.emb_dropout = nn.Dropout(p=emb_dropout)
 
-    # 8. Define the forward method
+    # Define the forward method
     def forward(self, x):
         
-        # 9. Linear projection of patches 
+        # Linear projection of patches 
         x = self.conv_proj(x)
 
-        # 10. Flatten the linear transformed patches
+        # Flatten the linear transformed patches
         x = self.flatten(x)
 
-        # 11. Adjust so the embedding is on the final dimension [batch_size, P^2•C, N] -> [batch_size, N, P^2•C]
+        # Adjust so the embedding is on the final dimension [batch_size, P^2•C, N] -> [batch_size, N, P^2•C]
         x = x.permute(0, 2, 1)
 
-        # 12. Create class token and prepend
+        # Create class token and prepend
         class_token = self.class_token.expand(x.shape[0], -1, -1)
         x = torch.cat((class_token, x), dim=1)
         
-        # 13. Create position embedding
+        # Create position embedding
         x = x + self.pos_embedding
 
-        # 14. Run embedding dropout (Appendix B.1)              
+        # Run embedding dropout (Appendix B.1)              
         x = self.emb_dropout(x)
 
         return x
@@ -74,29 +76,29 @@ class PatchEmbedding(nn.Module):
 class MultiheadSelfAttentionBlock(nn.Module):
     """Creates a multi-head self-attention block ("MSA block" for short).
     """
-    # 1. Initialize the class with hyperparameters from Table 1
+    # Initialize the class with hyperparameters from Table 1
     def __init__(self,
                  emb_dim:int=768, # Hidden size D from Table 1 for ViT-Base
                  num_heads:int=12, # Heads from Table 1 for ViT-Base
                  dropout:float=0): # doesn't look like the paper uses any dropout in MSABlocks
         super().__init__()
 
-        # 2. Create the Norm layer (LN)
+        # Create the Norm layer (LN)
         self.layer_norm = nn.LayerNorm(normalized_shape=emb_dim)
 
-        # 3. Create the Multi-Head Attention (MSA) layer
+        # Create the Multi-Head Attention (MSA) layer
         self.self_attention = nn.MultiheadAttention(embed_dim=emb_dim,
                                                     num_heads=num_heads,
                                                     dropout=dropout,
                                                     batch_first=True) # does our batch dimension come first?
 
-    # 4. Create a forward() method to pass the data throguh the layers
+    # Create a forward() method to pass the data throguh the layers
     def forward(self, x):
 
-        # 5. Normalization layer
+        # Normalization layer
         x = self.layer_norm(x)
 
-        # 6. Multihead attention layer
+        # Multihead attention layer
         x, _ = self.self_attention(query=x, # query embeddings
                                    key=x, # key embeddings
                                    value=x, # value embeddings
@@ -116,10 +118,10 @@ class MultiheadSelfAttentionBlockV2(nn.Module):
                  dropout: float = 0.0):  # Dropout for attention weights
         super().__init__()
 
-        # 2. Create the Norm layer (LayerNorm)
+        # Create the Norm layer (LayerNorm)
         self.layer_norm = nn.LayerNorm(normalized_shape=emb_dim)
 
-        # 3. Store parameters
+        # Store parameters
         self.num_heads = num_heads
         self.emb_dim = emb_dim
         self.dropout = dropout
@@ -141,25 +143,25 @@ class MultiheadSelfAttentionBlockV2(nn.Module):
 
     def forward(self, x):
         """Forward pass for the MSA block."""
-        # 1. Apply LayerNorm to the input
+        # Apply LayerNorm to the input
         normed_x = self.layer_norm(x)
 
-        # 2. Split the input tensor into multiple heads
+        # Split the input tensor into multiple heads
         query = self.split_into_heads(normed_x)
         key = self.split_into_heads(normed_x)
         value = self.split_into_heads(normed_x)
 
-        # 3. Perform scaled dot-product attention for each head
+        # Perform scaled dot-product attention for each head
         attn_output = F.scaled_dot_product_attention(query=query,
                                                      key=key,
                                                      value=value,
                                                      dropout_p=self.dropout,
                                                      is_causal=False)  # Set to True if causal attention is needed
 
-        # 4. Combine the heads back into a single tensor
+        # Combine the heads back into a single tensor
         output = self.combine_heads(attn_output)
 
-        # 5. Add residual connection
+        # Add residual connection
         output = x + output
 
         return output
@@ -167,17 +169,17 @@ class MultiheadSelfAttentionBlockV2(nn.Module):
 
 class MLPBlock(nn.Module):
     """Creates a layer normalized multilayer perceptron block ("MLP block" for short)."""
-    # 1. Initialize the class with hyperparameters from Table 1 and Table 3
+    # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  emb_dim:int=768, # Hidden Size D from Table 1 for ViT-Base
                  mlp_size:int=3072, # MLP size from Table 1 for ViT-Base (X4)
                  dropout:float=0.1): # Dropout from Table 3 for ViT-Base
         super().__init__()
 
-        # 2. Create the Norm layer (LN)
+        # Create the Norm layer (LN)
         self.layer_norm = nn.LayerNorm(normalized_shape=emb_dim)
 
-        # 3. Create the Multilayer perceptron (MLP) layer(s)
+        # Create the Multilayer perceptron (MLP) layer(s)
         self.mlp = nn.Sequential(
             nn.Linear(in_features=emb_dim,
                       out_features=mlp_size),
@@ -188,7 +190,7 @@ class MLPBlock(nn.Module):
             nn.Dropout(p=dropout) # "Dropout, when used, is applied after every dense layer"
         )
 
-    # 4. Create a forward() method to pass the data throguh the layers
+    # Create a forward() method to pass the data throguh the layers
     def forward(self, x):
 
         # Putting methods together
@@ -197,7 +199,7 @@ class MLPBlock(nn.Module):
 
 class TransformerEncoderBlock(nn.Module):
     """Creates a Transformer Encoder block."""
-    # 1. Initialize the class with hyperparameters from Table 1 and Table 3
+    # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  emb_dim:int=768, # Hidden size D from Table 1 for ViT-Base
                  num_heads:int=12, # Heads from Table 1 for ViT-Base
@@ -207,12 +209,12 @@ class TransformerEncoderBlock(nn.Module):
                  ): 
         super().__init__()
 
-        # 2. Create MSA block (equation 2)
+        # Create MSA block (equation 2)
         self.msa_block = MultiheadSelfAttentionBlock(emb_dim=emb_dim,
                                                      num_heads=num_heads,
                                                      dropout=attn_dropout)
 
-        # 3. Create MLP block (equation 3)
+        # Create MLP block (equation 3)
         self.mlp_block =  MLPBlock(emb_dim=emb_dim,
                                    mlp_size=mlp_size,
                                    dropout=mlp_dropout)
@@ -220,10 +222,10 @@ class TransformerEncoderBlock(nn.Module):
     # 4. Create a forward() method
     def forward(self, x):
 
-        # 5. Create residual connection for MSA block (add the input to the output)
+        # Create residual connection for MSA block (add the input to the output)
         x =  self.msa_block(x) + x
 
-        # 6. Create residual connection for MLP block (add the input to the output)
+        # Create residual connection for MLP block (add the input to the output)
         x = self.mlp_block(x) + x
 
         return x
@@ -341,7 +343,6 @@ class ViT(nn.Module):
             model.copy_weights(pretrained_vit_weights)
         """
 
-
         # Get the current state_dict of ViT
         state_dict = self.state_dict()
 
@@ -406,6 +407,9 @@ class ViT(nn.Module):
         # Reload updated state_dict into the model
         self.load_state_dict(state_dict)
 
+        print("[INFO] Model weights copied successfully.")
+        print("[INFO] Model weights are trainable by default. Use function set_params_frozen to freeze them.")
+
     def set_params_frozen(self,                          
                           except_head:bool=True):
         """
@@ -424,17 +428,42 @@ class ViT(nn.Module):
         for param in self.classifier.parameters():
             param.requires_grad = except_head
 
+    #def compile(self, backend='eager'):
+    #    """
+    #    Compiles the model with the selected backend using torch.compile.
+    #    Args:
+    #        backend (str): The backend to use. Options: 'eager', 'aot_eager', 'inductor'.
+    #    """
+    #    # Check if the provided backend is valid
+    #    if backend not in ['eager', 'aot_eager', 'inductor', 'cudagraphs', 'onnxrt']:
+    #        raise ValueError(f"Invalid backend selected: {backend}.")
+
+        # Compile the model with the selected backend
+    #    self = torch.compile(self, backend=backend)
+    #    print(f"Model compiled with backend: {backend}")
+
     # Create a forward() method
     def forward(self, x):
+        """
+        Forward pass of the Vision Transformer model.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape [batch_size, in_channels, img_size, img_size].
+
+        Returns:
+            torch.Tensor: Output tensor of shape [batch_size, num_classes].
+        """
 
         # Create patch embedding (equation 1)
-        x = self.embedder(x)
+        #x = self.embedder(x)
 
         # Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
-        x = self.encoder(x)
+        #x = self.encoder(x)
 
         # Put 0 index logit through classifier (equation 4)
-        x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
+        #x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
+        
+        x = self.classifier(self.encoder(self.embedder(x))[:,0])
 
         return x
 
@@ -482,6 +511,24 @@ class ViTv2(nn.Module):
         Note:
         This initialization is based on the ViT-Base/16 model as described in the Vision Transformer paper. Custom values can
         be provided for these parameters based on the specific task or dataset.
+
+        Usage of classif_heads:
+        - If provided, it will be used as the final classification layer(s) of the model.
+        - If None, a default single-layer classification head will be used with the specified number of classes.
+        - This allows for flexibility in the final layer(s) of the model, enabling customization based on the task requirements.
+        
+        def create_classification_heads(num_heads: int, emb_dim: int, num_classes: int) -> list:        
+            heads = []
+            for i in range(num_heads):
+                head = nn.Sequential(
+                    nn.LayerNorm(normalized_shape=emb_dim),
+                    nn.Linear(in_features=emb_dim, out_features=emb_dim // 2),
+                    nn.GELU(),
+                    nn.Linear(in_features=emb_dim // 2, out_features=num_classes)
+                )
+            heads.append(head)
+            return heads -> classif_heads
+        
         """
 
         super().__init__() # don't forget the super().__init__()!
@@ -526,7 +573,7 @@ class ViTv2(nn.Module):
 
 
     def copy_weights(self,
-                      model_weights: torchvision.models.ViT_B_16_Weights):
+                     model_weights: torchvision.models.ViT_B_16_Weights):
         """
         Copies the pretrained weights from a ViT model (Vision Transformer) to the current model.
         This method assumes that the current model has a structure compatible with the ViT-base architecture.
@@ -630,17 +677,28 @@ class ViTv2(nn.Module):
         for param in self.classifier.parameters():
             param.requires_grad = except_head
 
+    def compile(self):
+        """Compile the model using torch.compile for optimization."""
+        self.__compiled__ = torch.compile(self)
+        print("Model compiled successfully with torch.compile.")
+
     # Create a forward() method
     def forward(self, x):
+        """
+        Forward pass of the Vision Transformer model.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape [batch_size, in_channels, img_size, img_size].
+
+        Returns:
+            torch.Tensor: Output tensor of shape [batch_size, num_classes].
+        """
 
         # Create patch embedding (equation 1)
         x = self.embedder(x)
 
         # Pass patch, position and class embedding through transformer encoder layers (equations 2 & 3)
         x = self.encoder(x)
-
-        # Put 0 index logit through classifier (equation 4)
-        #x = self.classifier(x[:, 0]) # run on each sample in a batch at 0 index
 
         # Pass the outpu embeddings through the classification heads (as a list)
         x_list = [head(x[:, 0]) for head in self.classifier]
