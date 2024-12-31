@@ -47,6 +47,14 @@ Within the scope of this project, two ViT model architecutes have been implement
 
 ## 4. The ViT Model In Numbers
 
+**Binary classifier (Food vs Non-Food):**
+* Model architecture: EfficientNetB0
+* Model size: 16 MB
+* Number of parameters: 4.0 million
+* ROC AUC score: 1.0
+* Recall at 0% false positive rate: 99.3%
+
+**Food classifier:**
 * Model architecture: ViT-Base
 * Model size: 327 MB
 * Number of parameters: 85.9 million
