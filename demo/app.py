@@ -32,8 +32,8 @@ effnetb0_model = create_effnetb0(
     )
 
 # Load the ViT-Base transformer
-food_vision_model_name_path = "vitbase16_5.pth"
-IMG_SIZE = 224
+food_vision_model_name_path = "vitbase16_2_2024-12-31.pth"
+IMG_SIZE = 384
 vitbase_model = create_vitbase_model(
     model_weights_dir=".",
     model_weights_name=food_vision_model_name_path,
@@ -43,7 +43,7 @@ vitbase_model = create_vitbase_model(
 
 # Specify manual transforms
 transforms = v2.Compose([    
-    v2.Resize((242, 242)),
+    v2.Resize((IMG_SIZE, IMG_SIZE)),
     v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
     v2.ToImage(),
     v2.ToDtype(torch.float32, scale=True),
@@ -86,7 +86,7 @@ def predict(img) -> Tuple[Dict, str, str]:
             if pred_probs[0][class_names.index(top_class)] <= 0.5 and entropy > 2.5:
 
                 # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
-                pred_classes_and_probs["unknown"] = pred_probs.max() * 1.2
+                pred_classes_and_probs["unknown"] = pred_probs.max() * 1.25
                 prob_sum = sum(pred_classes_and_probs.values())
                 pred_classes_and_probs = {key: value / prob_sum for key, value in pred_classes_and_probs.items()}
 

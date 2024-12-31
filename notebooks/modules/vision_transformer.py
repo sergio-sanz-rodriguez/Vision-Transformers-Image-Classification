@@ -6,7 +6,25 @@ from torch.nn.init import trunc_normal_, xavier_normal_, zeros_, orthogonal_, ka
 
 
 # Create Pytorch's default ViT models
-def create_vit(vit_model: str="vitbase16", num_classes: int=1000, dropout: float=0.1):
+def create_vit(
+    vit_model: str="vitbase16",
+    num_classes: int=1000,
+    dropout: float=0.1,
+    seed: float=42,
+    device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"
+    ) -> torchvision.models.VisionTransformer:
+
+    """Creates a pretrained PyTorch's default ViT model.
+
+    Args:
+        vit_model (str, optional): Name of ViT model to create. Default is "vitbase16".
+        num_classes (int, optional): Number of classes in the classifier head. Default is 1000.
+        dropout (float, optional): Dropout rate in the classifier head. Default is 0.1.
+        device (torch.device, optional): Device to run model on. Default is "cuda" if available else "cpu".
+
+    Returns:
+        torchvision.models.VisionTransformer: A pretrained ViT model.
+    """
 
     # Get pretrained weights for ViT-Base/16
     if vit_model == "vitbase16":
@@ -31,9 +49,19 @@ def create_vit(vit_model: str="vitbase16", num_classes: int=1000, dropout: float
         pretrained_vit_weights = torchvision.models.ViT_L_16_Weights.DEFAULT
         pretrained_vit = torchvision.models.vit_l_16(weights=pretrained_vit_weights, dropout=dropout).to(device)
 
+    # Get pretrained weights for ViT-Large/16
+    elif vit_model == "vitlarge16_2":
+        pretrained_vit_weights = torchvision.models.ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1
+        pretrained_vit = torchvision.models.vit_l_16(weights=pretrained_vit_weights, dropout=dropout).to(device)
+
     # Get pretrained weights for ViT-Large/32
     elif vit_model == "vitlarge32":
         pretrained_vit_weights = torchvision.models.ViT_L_32_Weights.DEFAULT
+        pretrained_vit = torchvision.models.vit_l_32(weights=pretrained_vit_weights, dropout=dropout).to(device)
+
+    # Get pretrained weights for ViT-Huge/14
+    elif vit_model == "vithuge14":
+        pretrained_vit_weights = torchvision.models.ViT_H_14_Weights.DEFAULT
         pretrained_vit = torchvision.models.vit_l_32(weights=pretrained_vit_weights, dropout=dropout).to(device)
         
     else:
@@ -44,13 +72,19 @@ def create_vit(vit_model: str="vitbase16", num_classes: int=1000, dropout: float
     for parameter in pretrained_vit.parameters():
         parameter.requires_grad = True
 
-    # Change the classifier head (set the seeds to ensure same initialization with linear head)
-    set_seeds(SEED)
+    # Set the seed for general torch operations
+    torch.manual_seed(seed)
 
+    # Set the seed for CUDA torch operations (ones that happen on the GPU)
+    torch.cuda.manual_seed(seed)
+
+    # Change the classifier head (set the seeds to ensure same initialization with linear head)
     if "vitbase" in vit_model:
         pretrained_vit.heads = nn.Linear(in_features=768, out_features=num_classes).to(device)
-    else:
+    elif "vitlarge" in vit_model:
         pretrained_vit.heads = nn.Linear(in_features=1024, out_features=num_classes).to(device)
+    else:
+        pretrained_vit.heads = nn.Linear(in_features=1280, out_features=num_classes).to(device)
 
     return pretrained_vit
 
@@ -58,13 +92,16 @@ def create_vit(vit_model: str="vitbase16", num_classes: int=1000, dropout: float
 # Implementation of a vision transformer following the paper "AN IMAGE IS WORTH 16X16 WORDS: TRANSFORMERS FOR IMAGE RECOGNITION AT SCALE"
 
 class PatchEmbedding(nn.Module):
-    """Turns a 2D input image into a 1D sequence learnable embedding vector.
+
+    """
+    Turns a 2D input image into a 1D sequence learnable embedding vector.
 
     Args:
         in_channels (int): Number of color channels for the input images. Defaults to 3.
         patch_size (int): Size of patches to convert input image into. Defaults to 16.
         emb_dim (int): Size of embedding to turn image into. Defaults to 768.
     """
+
     # Initialize the class with appropriate variables
     def __init__(self,
                  img_size:int=224,
@@ -124,8 +161,11 @@ class PatchEmbedding(nn.Module):
 
 
 class MultiheadSelfAttentionBlock(nn.Module):
-    """Creates a multi-head self-attention block ("MSA block" for short).
+
     """
+    Creates a multi-head self-attention block ("MSA block" for short).
+    """
+
     # Initialize the class with hyperparameters from Table 1
     def __init__(self,
                  emb_dim:int=768, # Hidden size D from Table 1 for ViT-Base
@@ -160,7 +200,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MultiheadSelfAttentionBlockV2(nn.Module):
-    """Creates a custom multi-head self-attention block using scaled dot-product attention."""
+
+    """
+    Creates a custom multi-head self-attention block using scaled dot-product attention.
+    """
     
     def __init__(self,
                  emb_dim: int = 768,  # Hidden size D (ViT-Base)
@@ -218,7 +261,11 @@ class MultiheadSelfAttentionBlockV2(nn.Module):
 
 
 class MLPBlock(nn.Module):
-    """Creates a layer normalized multilayer perceptron block ("MLP block" for short)."""
+
+    """
+    Creates a layer normalized multilayer perceptron block ("MLP block" for short).
+    """
+
     # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  emb_dim:int=768, # Hidden Size D from Table 1 for ViT-Base
@@ -248,7 +295,11 @@ class MLPBlock(nn.Module):
     
 
 class TransformerEncoderBlock(nn.Module):
-    """Creates a Transformer Encoder block."""
+
+    """
+    Creates a Transformer Encoder block.
+    """
+
     # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  emb_dim:int=768, # Hidden size D from Table 1 for ViT-Base
@@ -283,7 +334,11 @@ class TransformerEncoderBlock(nn.Module):
 
 # Create a ViT class that inherits from nn.Module
 class ViT(nn.Module):
-    """Creates a Vision Transformer architecture with ViT-Base hyperparameters by default."""
+
+    """
+    Creates a Vision Transformer architecture with ViT-Base hyperparameters by default.
+    """
+
     # Initialize the class with hyperparameters from Table 1 and Table 3
     def __init__(self,
                  img_size:int=224, # Training resolution from Table 3 in ViT paper
@@ -386,6 +441,7 @@ class ViT(nn.Module):
 
     def copy_weights(self,
                       model_weights: torchvision.models.ViT_B_16_Weights):
+
         """
         Copies the pretrained weights from a ViT model (Vision Transformer) to the current model.
         This method assumes that the current model has a structure compatible with the ViT-base architecture.
@@ -591,7 +647,6 @@ class ViTv2(nn.Module):
                 )
             heads.append(head)
             return heads -> classif_heads
-        
         """
 
         super().__init__() # don't forget the super().__init__()!
@@ -637,6 +692,7 @@ class ViTv2(nn.Module):
 
     def copy_weights(self,
                      model_weights: torchvision.models.ViT_B_16_Weights):
+
         """
         Copies the pretrained weights from a ViT model (Vision Transformer) to the current model.
         This method assumes that the current model has a structure compatible with the ViT-base architecture.
@@ -656,7 +712,6 @@ class ViTv2(nn.Module):
             pretrained_vit_weights = torchvision.models.ViT_B_16_Weights.DEFAULT
             model.copy_weights(pretrained_vit_weights)
         """
-
 
         # Get the current state_dict of ViT
         state_dict = self.state_dict()
@@ -724,6 +779,7 @@ class ViTv2(nn.Module):
 
     def set_params_frozen(self,                          
                           except_head:bool=True):
+
         """
         Freezes parameters of different components, allowing exceptions.
 
@@ -747,6 +803,7 @@ class ViTv2(nn.Module):
 
     # Create a forward() method
     def forward(self, x):
+
         """
         Forward pass of the Vision Transformer model.
 

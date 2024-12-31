@@ -70,6 +70,9 @@ def create_vitbase_model(
         num_classes=num_classes
     )
     
+    # Compile the model
+    vitbase16_model = torch.compile(vitbase16_model, backend="aot_eager")
+
     # Load the trained weights
     vitbase16_model = load_model(
         model=vitbase16_model,
