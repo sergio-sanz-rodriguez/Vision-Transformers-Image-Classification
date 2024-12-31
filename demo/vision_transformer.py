@@ -2,7 +2,7 @@ import torch
 import torchvision
 import torch._dynamo
 from torch import nn
-from torch.nn.init import trunc_normal_
+from torch.nn.init import trunc_normal_, xavier_normal_, zeros_, orthogonal_, kaiming_normal_
 
 
 # Implementation of a vision transformer following the paper "AN IMAGE IS WORTH 16X16 WORDS: TRANSFORMERS FOR IMAGE RECOGNITION AT SCALE"
@@ -319,6 +319,19 @@ class ViT(nn.Module):
                 nn.LayerNorm(normalized_shape=emb_dim),
                 nn.Linear(in_features=emb_dim, out_features=num_classes)
             )
+        
+        # Initialize LayerNorm
+        #for m in self.classifier:
+        #    if isinstance(m, nn.LayerNorm):
+        #        m.weight.data.fill_(1.0)
+        #        m.bias.data.fill_(0.0)
+        #    elif isinstance(m, nn.Linear):
+        #        # Apply Xavier (Glorot) initialization
+        #        #xavier_normal_(m.weight)
+        #        #orthogonal_(m.weight)
+        #        #kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+        #        if m.bias is not None:
+        #            zeros_(m.bias)
 
 
     def copy_weights(self,

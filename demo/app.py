@@ -86,7 +86,7 @@ def predict(img) -> Tuple[Dict, str, str]:
             if pred_probs[0][class_names.index(top_class)] <= 0.5 and entropy > 2.5:
 
                 # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
-                pred_classes_and_probs["unknown"] = 1.0
+                pred_classes_and_probs["unknown"] = pred_probs.max() * 1.2
                 prob_sum = sum(pred_classes_and_probs.values())
                 pred_classes_and_probs = {key: value / prob_sum for key, value in pred_classes_and_probs.items()}
 
@@ -126,7 +126,7 @@ food_vision_examples = [["examples/" + example] for example in os.listdir("examp
 
 article = "Created by Sergio Sanz."
 
-upload_input = gr.Image(type="pil", label="Upload Image", show_label=True, mirror_webcam=False)
+upload_input = gr.Image(type="pil", label="Upload Image", sources=['upload'], show_label=True, mirror_webcam=False)
 
 # Create sliders for the thresholds
 #prob = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.4, label="Probability Threshold")

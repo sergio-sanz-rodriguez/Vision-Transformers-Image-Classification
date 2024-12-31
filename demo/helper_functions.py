@@ -115,14 +115,14 @@ def create_dataloaders(
       batch_size=batch_size,
       shuffle=True,
       num_workers=num_workers,
-      pin_memory=True, #enables fast data transfre to CUDA-enable GPU
+      pin_memory=True, #enables fast data transfers to CUDA-enabled GPU
   )
   test_dataloader = DataLoader(
       test_data,
       batch_size=batch_size,
       shuffle=False,
       num_workers=num_workers,
-      pin_memory=True, #enables fast data transfre to CUDA-enable GPU
+      pin_memory=True, #enables fast data transfers to CUDA-enabled GPU
   )
 
   return train_dataloader, test_dataloader, class_names
