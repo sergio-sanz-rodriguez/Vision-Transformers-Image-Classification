@@ -55,7 +55,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 * Recall at 0% false positive rate: 99.3%
 
 <div align="center">
-  <img src="images/roc_classif.png" alt="ROC Curve" width="1200"/>
+  <img src="images/roc_classif.png" alt="ROC Curve" width="1500"/>
 </div>
 
 **Food classifier:**
