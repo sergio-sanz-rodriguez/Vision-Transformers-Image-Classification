@@ -54,6 +54,10 @@ Within the scope of this project, two ViT model architecutes have been implement
 * ROC AUC score: 1.0
 * Recall at 0% false positive rate: 99.3%
 
+<div align="center">
+  <img src="images/roc_classif.png" alt="ROC Curve" width="1000"/>
+</div>
+
 **Food classifier:**
 * Model architecture: ViT-Base
 * Model size: 327 MB
