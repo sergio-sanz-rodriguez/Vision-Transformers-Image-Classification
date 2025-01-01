@@ -71,7 +71,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 | Accuracy | 88% | 92% |
 | Performance on CPU (Core i9-9900K) | 9 images/sec | 3 images/sec |
 | Performance on GPU (RTX 4070) | 50 images/sec | 50 images/sec |
-
+<br>
 
 <div align="center">
   <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
