@@ -65,7 +65,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 * Model size: 327 MB
 * Number of parameters: 86.2 million
 * Accuracy on the Food101 dataset: 92%
-* Performance on CPU (Core i9-9900K): 9 images/sec
+* Performance on CPU (Core i9-9900K): 3 images/sec
 * Performance on GPU (RTX 4070): 50 images/sec
 
 <div align="center">
