@@ -59,6 +59,7 @@ Within the scope of this project, two ViT model architecutes have been implement
   <img src="images/roc_classif.png" alt="ROC Curve" width="1500"/>
 </div>
 
+
 **Food classifier:**
 * Model architecture: ViT-Base/16
 * Model size: 327 MB
@@ -66,6 +67,10 @@ Within the scope of this project, two ViT model architecutes have been implement
 * Accuracy on the Food101 dataset: 92%
 * Performance on CPU (Core i9-9900K): 9 images/sec
 * Performance on GPU (RTX 4070): 50 images/sec
+
+<div align="center">
+  <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
+</div>
 
 ## 5. Web application
 
