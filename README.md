@@ -62,12 +62,16 @@ Within the scope of this project, two ViT model architecutes have been implement
 
 
 **Food classifier:**
-* Model architecture: ViT-Base/16
-* Model size: 327 MB
-* Number of parameters: 86.2 million
-* Accuracy on the Food101 dataset: 92%
-* Performance on CPU (Core i9-9900K): 3 images/sec
-* Performance on GPU (RTX 4070): 50 images/sec
+| Parameter | Model 1 | Model 2 |
+| ----- | ----- | ----- |
+| Model architecture | ViT-Base/16 | ViT-Base/16 |
+| Input image size | 224x224 pixels | 384x384 pixels |
+| Model size | 327 MB | 327 MB |
+| Number of parameters | 85.9 million | 86.2 million |
+| Accuracy | 88% | 92% |
+| Performance on CPU (Core i9-9900K) | 9 images/sec | 3 images/sec |
+| Performance on GPU (RTX 4070) | 50 images/sec | 50 images/sec |
+<br>
 
 <div align="center">
   <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
