@@ -62,8 +62,8 @@ Within the scope of this project, two ViT model architecutes have been implement
 
 
 **Food classifier:**
-| Parameter | Model |
-| ----- | ----- |
+| Parameter | Model 1 | Model 2 |
+| ----- | ----- | ----- |
 | Model architecture | ViT-Base/16 | ViT-Base/16 |
 | Input image size | 224x224 pixels | 384x384 pixels |
 | Model size | 327 MB | 327 MB |
