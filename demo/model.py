@@ -41,7 +41,8 @@ def create_vitbase_model(
     model_weights_dir:Path,
     model_weights_name:str,
     img_size:int=224,
-    num_classes:int=101
+    num_classes:int=101,
+    compile:bool=False
     ):
     """
     Creates a ViT-B/16 model with the specified number of classes.
@@ -71,7 +72,8 @@ def create_vitbase_model(
     )
     
     # Compile the model
-    vitbase16_model = torch.compile(vitbase16_model, backend="aot_eager")
+    if compile:
+        vitbase16_model = torch.compile(vitbase16_model, backend="aot_eager")
 
     # Load the trained weights
     vitbase16_model = load_model(
