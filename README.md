@@ -69,7 +69,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 * Performance on GPU (RTX 4070): 50 images/sec
 
 <div align="center">
-  <img src="images/f1-score_vs_food-type.png" alt="ROC Curve" width="1500"/>
+  <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
 </div>
 
 ## 5. Web application
