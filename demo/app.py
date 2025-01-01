@@ -153,12 +153,7 @@ def predict(image) -> Tuple[Dict, str, str]:
 # Configure and design the Gradio App
 
 # Create title, description, and examples
-title = """
-<div style="text-align: center;">
-    Transform-Eats Large<br>
-    <span style="font-size: 1.5em;">🥪🥗🥣🥩🍝🍣🍰</span>
-</div>
-"""
+title = "Transform-Eats Large<br>🥪🥗🥣🥩🍝🍣🍰"
 description = f"""
 A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
 
