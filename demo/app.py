@@ -61,7 +61,7 @@ vitbase_model_2 = create_vitbase_model(
 
 # Specify manual transforms for model_2
 transforms_2 = v2.Compose([    
-    v2.Resize((384, 384)),
+    v2.Resize(384), #v2.Resize((384, 384)),
     v2.CenterCrop((384, 384)),    
     v2.ToImage(),
     v2.ToDtype(torch.float32, scale=True),
@@ -75,8 +75,7 @@ vitbase_model_1.eval()
 vitbase_model_2.eval()
 
 # Specify default ViT model
-# "Vision Transformer - 224x224 pixels (lower accuracy, faster predictions)"
-default_model = "Vision Transformer - 384x384 pixels (higher accuracy, slower predictions)"
+default_model = "Vision Transformer - 384x384 pixels (higher accuracy, slower predictions)" # "Vision Transformer - 224x224 pixels (lower accuracy, faster predictions)"
 
 # Predict function
 def predict(image) -> Tuple[Dict, str, str]:
@@ -154,7 +153,12 @@ def predict(image) -> Tuple[Dict, str, str]:
 # Configure and design the Gradio App
 
 # Create title, description, and examples
-title = "Transform-Eats Large 🥪🥗🥩"
+title = """
+<div style="text-align: center;">
+    Transform-Eats Large<br>
+    <span style="font-size: 1.5em;">🥪🥗🥣🥩🍝🍣🍰</span>
+</div>
+"""
 description = f"""
 A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
 
