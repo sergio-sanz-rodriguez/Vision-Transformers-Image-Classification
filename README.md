@@ -23,7 +23,7 @@ These vectors are then passed through a series of non-linear multilayer perceptr
 One of the outputs of the transformer encoder, typically the representation of the classification token (a special token added to the input sequence), is passed to a simple neural network (often a single-layer classifier) that determines the class to which the input image belongs.
 
 <div align="center">
-  <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="1000"/>
+  <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="500"/>
 </div>
 
 Within the scope of this project, two ViT model architecutes have been implemented and evaluated: **ViT-Base** and **ViT-Large**.
