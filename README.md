@@ -23,7 +23,7 @@ These vectors are then passed through a series of non-linear multilayer perceptr
 One of the outputs of the transformer encoder, typically the representation of the classification token (a special token added to the input sequence), is passed to a simple neural network (often a single-layer classifier) that determines the class to which the input image belongs.
 
 <div align="center">
-  <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="500"/>
+  <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="1000"/>
 </div>
 
 Within the scope of this project, two ViT model architecutes have been implemented and evaluated: **ViT-Base** and **ViT-Large**.
@@ -33,7 +33,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 The classification system consists of two deep-learning models (see Figure below): an EfficientNetB0 classification network to differentiate between food and non-food images, and a ViT-Base-epoch16-384 network to classify the specific food type if the input image depicts food. Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
 
 <div align="center">
-  <img src="images/block_diagram.png" alt="Into Picture" width="1000"/>
+  <img src="images/block_diagram.png" alt="Into Picture" width="500"/>
 </div>
 
 ## 3. Description of the Notebooks
