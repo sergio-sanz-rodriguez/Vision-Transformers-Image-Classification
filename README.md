@@ -63,16 +63,16 @@ Within the scope of this project, two ViT model architecutes have been implement
 
 
 **Food classifier:**
-| Parameter | Model 1 | Model 2 |
-| ----- | ----- | ----- |
-| Model architecture | ViT-Base/16 | ViT-Base/16 |
-| Input image size | 224x224 pixels | 384x384 pixels |
-| Model size | 327 MB | 327 MB |
-| Number of parameters | 85.9 million | 86.2 million |
-| Accuracy | 88% | 92% |
-| Performance on CPU (Core i9-9900K) | 9 images/sec | 3 images/sec |
-| Performance on GPU (RTX 4070) | 50 images/sec | 50 images/sec |
-| Training time (RTX 4070) | ~8 min/epoch | ~18 min/epoch |
+| Parameter | EffNet Model 1 | EffNet Model 2 | ViT Model 1 | ViT Model 2 |
+| ----- | ----- | ----- | ----- | ----- | 
+| Model architecture | EfficientNet B2 | EfficientNet V2 L | ViT-Base/16 | ViT-Base/16 |
+| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels |
+| Model size | 37 MB | 461 MB | 327 MB | 327 MB |
+| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million |
+| Accuracy | | | 88% | 92% |
+| Performance on CPU (Core i9-9900K) | | | 9 images/sec | 3 images/sec |
+| Performance on GPU (RTX 4070) | | | 50 images/sec | 50 images/sec |
+| Training time (RTX 4070) | | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch |
 <br>
 
 <div align="center">
