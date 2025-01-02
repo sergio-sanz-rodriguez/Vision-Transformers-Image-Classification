@@ -55,6 +55,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 * Number of parameters: 4.0 million
 * ROC AUC score: 1.0
 * Recall at 0% false positive rate: 99.3%
+* Training time (RTX 4070): ~7 min/epoch
 
 <div align="center">
   <img src="images/roc_classif.png" alt="ROC Curve" width="1500"/>
@@ -71,6 +72,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 | Accuracy | 88% | 92% |
 | Performance on CPU (Core i9-9900K) | 9 images/sec | 3 images/sec |
 | Performance on GPU (RTX 4070) | 50 images/sec | 50 images/sec |
+| Training time (RTX 4070) | ~8 min/epoch | ~18 min/epoch |
 <br>
 
 <div align="center">
