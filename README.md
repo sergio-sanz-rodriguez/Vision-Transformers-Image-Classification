@@ -33,7 +33,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 The classification system consists of two deep-learning models (see Figure below): an EfficientNetB0 classification network to differentiate between food and non-food images, and a ViT-Base-epoch16-384 network to classify the specific food type if the input image depicts food. Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
 
 <div align="center">
-  <img src="images/block_diagram.png" alt="Into Picture" width="500"/>
+  <img src="images/model_pipeline.png" alt="Into Picture" width="500"/>
 </div>
 
 ## 3. Description of the Notebooks
