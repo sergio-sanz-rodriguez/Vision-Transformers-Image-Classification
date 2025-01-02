@@ -28,6 +28,14 @@ One of the outputs of the transformer encoder, typically the representation of t
 
 Within the scope of this project, two ViT model architecutes have been implemented and evaluated: **ViT-Base** and **ViT-Large**.
 
+## 3. Proposed Model Architecture
+
+The classification system consists of two deep-learning models (see Figure below): an EfficientNetB0 classification network to differentiate between food and non-food images, and a ViT-Base-epoch16-384 network to classify the specific food type if the input image depicts food. Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
+
+<div align="center">
+  <img src="images/block_diagram.png" alt="Into Picture" width="1000"/>
+</div>
+
 ## 3. Description of the Notebooks
 
 * [Custom_Data_Creation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation.ipynb): This notebook downloads and creates the image dataset for the food classifier network, splitting the data into train and test subsets.
