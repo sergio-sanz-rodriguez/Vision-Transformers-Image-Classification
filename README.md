@@ -36,7 +36,7 @@ The classification system consists of two deep-learning models (see Figure below
   <img src="images/model_pipeline.png" alt="Into Picture" width="500"/>
 </div>
 
-## 3. Description of the Notebooks
+## 4. Description of the Notebooks
 
 * [Custom_Data_Creation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation.ipynb): This notebook downloads and creates the image dataset for the food classifier network, splitting the data into train and test subsets.
 * [Custom_Data_Creation_Classification.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation_Classification.ipynb): This notebook downloads and creates the image dataset for the binary classification network, splitting the data into train and test subsets.
@@ -55,7 +55,7 @@ The classification system consists of two deep-learning models (see Figure below
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
 
 
-## 4. The ViT Model In Numbers
+## 5.The Models in Numbers
 
 **Binary classifier (Food vs Non-Food):**
 * Model architecture: EfficientNetB0
@@ -87,7 +87,7 @@ The classification system consists of two deep-learning models (see Figure below
   <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
 </div>
 
-## 5. Web application
+## 6. Web Application
 
 The following web app has been created on Hugging Face to showcase the ViT model in action. Feel free to try it out!
 
