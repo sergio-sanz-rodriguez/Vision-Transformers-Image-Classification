@@ -73,6 +73,7 @@ The classification system consists of two deep-learning models (see Figure below
   <img src="images/roc_classif.png" alt="ROC Curve" width="1500"/>
 </div>
 
+As observed, the binary classification model achieves near perfect prediction.
 
 **Food classifier:**
 | Parameter | EffNet Model 1 | EffNet Model 2 | ViT Model 1 | ViT Model 2 |
@@ -92,6 +93,8 @@ The above table shows a comparison between different deep learning architectures
 <div align="center">
   <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
 </div>
+
+This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 
 ## 6. Web Application
 
