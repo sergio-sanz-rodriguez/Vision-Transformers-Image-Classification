@@ -85,7 +85,7 @@ As observed, the binary classification model achieves near perfect prediction.
 **Food classifier:**
 | Parameter | EffNet Model 1 | EffNet Model 2 | ViT Model 1 | ViT Model 2 |
 | ----- | ----- | ----- | ----- | ----- | 
-| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16` |
+| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 |
 | Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels |
 | Model size | 37 MB | 461 MB | 327 MB | 327 MB |
 | Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million |
