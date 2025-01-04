@@ -36,7 +36,11 @@ Within the scope of this project, two ViT model architecutes have been implement
 
 ## 4. Proposed Model Architecture
 
-The classification system consists of two deep-learning models (see Figure below): an EfficientNetB0 classification network to differentiate between food and non-food images, and a ViT-Base-epoch16-384 network to classify the specific food type if the input image depicts food. Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
+The classification system comprises two deep learning models, as depicted in the figure below. The first model is an EfficientNetB0 classifier designed to distinguish between food and non-food images. If an image is classified as food, it is passed to the second model, a `ViT-Base/16-384 network`. This model processes images resized to 384×384 pixels and divided into 16×16 patches, classifying them into specific food categories.
+
+In addition to the original 101 categories, the system includes an additional category labeled "unknown." This category is used for food (and non-food) images that do not fit into any of the other predefined classes. 
+
+Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
 
 <div align="center">
   <img src="images/model_pipeline.png" alt="Into Picture" width="500"/>
@@ -83,16 +87,17 @@ The classification system consists of two deep-learning models (see Figure below
 As observed, the binary classification model achieves near perfect prediction.
 
 **Food classifier:**
-| Parameter | EffNet Model 1 | EffNet Model 2 | ViT Model 1 | ViT Model 2 |
-| ----- | ----- | ----- | ----- | ----- | 
-| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 |
-| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels |
-| Model size | 37 MB | 461 MB | 327 MB | 327 MB |
-| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million |
-| Accuracy | 88.0% | 92.9% | 87.7% | 91.6% |
-| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9 images/sec | 3 images/sec |
-| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 50 images/sec | 50 images/sec |
-| Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch |
+| Parameter | EffNet Model 1 | EffNet Model 2 | ViT Model 1 | ViT Model 2 | ViT Model 3
+| ----- | ----- | ----- | ----- | ----- | ----- | 
+| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
+| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels | 384x384 pixels |
+| Number of classes | 101 | 101 | 101 | 101 | 102 (101 + unknown) |
+| Model size | 37 MB | 461 MB | 328 MB | 328 MB | 328 MB |
+| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
+| Accuracy | 88.0% | 92.9% | 87.7% | 91.6% | 91.3% |
+| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9 images/sec | 3 images/sec | |
+| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 50 images/sec | 50 images/sec | |
+| Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | |
 <br>
 
 The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices. We can also observe that EfficientNetV2L achieves the highest accuracy (92.9%), followed very closely by ViT-Base/16-384 (91.6%). However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU.
