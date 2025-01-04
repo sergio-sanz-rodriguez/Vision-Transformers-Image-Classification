@@ -1,6 +1,6 @@
 import math
 import torch
-from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import LambdaLR
 
 class WarmupLinearSchedule(LambdaLR): 
     """ 
@@ -39,6 +39,7 @@ class WarmupCosineSchedule(LambdaLR):
         progress = float(epoch - self.warmup_epochs) / float(max(1, self.t_total_epochs - self.warmup_epochs))
         return max(0.0, 0.5 * (1. + math.cos(math.pi * float(self.cycles) * 2.0 * progress)))
 
+
 class WarmupCosineAnnealingLR(torch.optim.lr_scheduler._LRScheduler):
     def __init__(self, optimizer, warmup_epochs, T_max, cycles=0.5, eta_min=0, last_epoch=-1):
         """
@@ -73,7 +74,7 @@ class WarmupCosineAnnealingLR(torch.optim.lr_scheduler._LRScheduler):
         return lr
 
 class FixedLRSchedulerWrapper:
-    
+
     """
     FixedLRSchedulerWrapper wraps an existing learning rate scheduler to allow for 
     a fixed learning rate after a specified epoch.
