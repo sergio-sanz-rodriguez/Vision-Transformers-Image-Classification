@@ -14,7 +14,13 @@ This project focuses on the implementation, testing, and evaluation of Vision Tr
 
 The primary objective is to assess the accuracy and performance of ViT models using the [Food-101](https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/) dataset, which consists of 101 food categories. Additionally, a web application showcasing the selected model has been developed to demonstrate its practical use in real-world scenarios.
 
-## 2. Description of the Architecture
+## 2. Web Application
+
+The following web app has been created on Hugging Face to showcase the ViT model in action. Feel free to try it out!
+
+https://huggingface.co/spaces/sergio-sanz-rodriguez/transform-eats
+
+## 3. Description of the Architecture
 
 A Vision Transformer (ViT) is a state-of-the-art neural network that utilizes the attention mechanism as its primary learning layer. It divides an image into square patches and establishes relationships between them by identifying the most relevant regions based on contextual information. The multi-head attention mechanism processes these patches and generates a sequence of vectors, each representing a patch along with its contextual features.
 
@@ -28,7 +34,7 @@ One of the outputs of the transformer encoder, typically the representation of t
 
 Within the scope of this project, two ViT model architecutes have been implemented and evaluated: **ViT-Base** and **ViT-Large**.
 
-## 3. Proposed Model Architecture
+## 4. Proposed Model Architecture
 
 The classification system consists of two deep-learning models (see Figure below): an EfficientNetB0 classification network to differentiate between food and non-food images, and a ViT-Base-epoch16-384 network to classify the specific food type if the input image depicts food. Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
 
@@ -36,7 +42,7 @@ The classification system consists of two deep-learning models (see Figure below
   <img src="images/model_pipeline.png" alt="Into Picture" width="500"/>
 </div>
 
-## 4. Description of the Notebooks
+## 5. Description of the Notebooks
 
 * [Custom_Data_Creation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation.ipynb): This notebook downloads and creates the image dataset for the food classifier network, splitting the data into train and test subsets.
 * [Custom_Data_Creation_Classification.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation_Classification.ipynb): This notebook downloads and creates the image dataset for the binary classification network, splitting the data into train and test subsets.
@@ -59,7 +65,7 @@ The classification system consists of two deep-learning models (see Figure below
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
 
 
-## 5.The Models in Numbers
+## 6.Model Performance
 
 **Binary classifier (Food vs Non-Food):**
 * Model architecture: EfficientNetB0
@@ -95,10 +101,4 @@ The above table shows a comparison between different deep learning architectures
 </div>
 
 This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
-
-## 6. Web Application
-
-The following web app has been created on Hugging Face to showcase the ViT model in action. Feel free to try it out!
-
-https://huggingface.co/spaces/sergio-sanz-rodriguez/transform-eats
 
