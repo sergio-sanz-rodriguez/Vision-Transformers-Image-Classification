@@ -94,7 +94,7 @@ As observed, the binary classification model achieves near perfect prediction.
 | ----- | ----- | ----- | ----- | ----- | ----- | 
 | Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
 | Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels | 384x384 pixels |
-| Number of classes | 101 | 101 | 101 | 101 | 102 (101 + unknown) |
+| Number of classes | 101 | 101 | 101 | 101 | 102 (101 + "unknown") |
 | Model size | 37 MB | 461 MB | 328 MB | 328 MB | 328 MB |
 | Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
 | Accuracy | 88.0% | 92.9% | 87.7% | 91.6% | 91.3% |
