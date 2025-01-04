@@ -36,7 +36,7 @@ Within the scope of this project, two ViT model architecutes have been implement
 
 ## 4. Proposed Model Architecture
 
-The classification system comprises two deep learning models, as depicted in the figure below. The first model is an EfficientNetB0 classifier designed to distinguish between food and non-food images. If an image is classified as food, it is passed to the second model, a `ViT-Base/16-384 network`. This model processes images resized to 384×384 pixels and divided into 16×16 patches, classifying them into specific food categories.
+The classification system comprises two deep learning models, as depicted in the figure below. The first model is an EfficientNetB0 classifier designed to distinguish between food and non-food images. If an image is classified as food, it is passed to the second deep learning model, a **`ViT-Base/16-384 network`**. This model processes images resized to 384×384 pixels and divided into 16×16 patches, classifying them into specific food categories.
 
 In addition to the original 101 categories, the system includes an additional category labeled "unknown." This category is used for food (and non-food) images that do not fit into any of the other predefined classes. 
 
