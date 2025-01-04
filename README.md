@@ -105,7 +105,7 @@ The above table shows a comparison between different deep learning architectures
 Therefore, **`ViT-Base/16-384`** is the model that achieves the best trade-off between accuracy and prediction speed.
 
 <div align="center">
-  <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
+  <img src="images/f1-score_vs_food-type_vit_model_2.png" alt="F1-Score" width="1500"/>
 </div>
 
 This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
