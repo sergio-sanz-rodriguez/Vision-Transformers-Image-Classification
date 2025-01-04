@@ -1,9 +1,8 @@
 import torch
 import torchvision
-import torch._dynamo
 from torch import nn
-from torch.nn.init import trunc_normal_, xavier_normal_, zeros_, orthogonal_, kaiming_normal_
-
+from torch.nn.init import trunc_normal_
+#, xavier_normal_, zeros_, orthogonal_, kaiming_normal_
 
 # Create Pytorch's default ViT models
 def create_vit(

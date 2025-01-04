@@ -16,7 +16,7 @@ with open(food_vision_class_names_path, "r") as f:
     class_names = f.read().splitlines()
 
 # Specify number of classes
-num_classes = len(class_names) - 1 # 101, "unknown" to be discarded
+num_classes = len(class_names) # 101 + unknown
 
 # Load the food description file
 food_descriptions_json = "food_descriptions.json"
@@ -31,36 +31,17 @@ effnetb0_model = create_effnetb0(
     num_classes=2
     )
 
-# Load the ViT-Base/16 transformer with input image of 224x224 pixels
-vitbase_model_1 = create_vitbase_model(
+# Load the ViT-Base/16 transformer with input image of 384x384 pixels and 101 + unknown classes
+vitbase_model = create_vitbase_model(
     model_weights_dir=".",
-    model_weights_name="vitbase16_5.pth",
-    img_size=224,
-    num_classes=num_classes,
-    compile=False
-)
-
-# Specify manual transforms for model_1
-transforms_1 = v2.Compose([    
-    v2.Resize((242, 242)),
-    v2.CenterCrop((224, 224)),    
-    v2.ToImage(),
-    v2.ToDtype(torch.float32, scale=True),
-    v2.Normalize(mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]) 
-])
-
-# Load the ViT-Base/16 transformer with input image of 384x384 pixels 
-vitbase_model_2 = create_vitbase_model(
-    model_weights_dir=".",
-    model_weights_name="vitbase16_2_2024-12-31.pth",
+    model_weights_name="vitbase16_102_2025-01-04_best.pth",
     img_size=384,
     num_classes=num_classes,
     compile=True
 )
 
 # Specify manual transforms for model_2
-transforms_2 = v2.Compose([    
+transforms = v2.Compose([    
     v2.Resize(384), #v2.Resize((384, 384)),
     v2.CenterCrop((384, 384)),    
     v2.ToImage(),
@@ -69,13 +50,10 @@ transforms_2 = v2.Compose([
                 std=[0.229, 0.224, 0.225]) 
 ])
 
+
 # Put models into evaluation mode and turn on inference mode
 effnetb0_model.eval()
-vitbase_model_1.eval()
-vitbase_model_2.eval()
-
-# Specify default ViT model
-default_model = "Vision Transformer - 384x384 pixels (higher accuracy, slower predictions)" # "Vision Transformer - 224x224 pixels (lower accuracy, faster predictions)"
+vitbase_model.eval()
 
 # Predict function
 def predict(image) -> Tuple[Dict, str, str]:
@@ -86,14 +64,6 @@ def predict(image) -> Tuple[Dict, str, str]:
         # Start the timer
         start_time = timer()
 
-        # Select the appropriate model based on the user's choice
-        if default_model == "Vision Transformer - 384x384 pixels (higher accuracy, slower predictions)":
-            vitbase_model = vitbase_model_2
-            transforms = transforms_2
-        else:
-            vitbase_model = vitbase_model_1
-            transforms = transforms_1
-        
         # Transform the target image and add a batch dimension
         image = transforms(image).unsqueeze(0)
         
@@ -104,14 +74,13 @@ def predict(image) -> Tuple[Dict, str, str]:
             if effnetb0_model(image)[:,1].cpu() >= 0.9981166124343872:
 
                 # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
-                pred_probs = torch.softmax(vitbase_model(image), dim=1) # 101 classes
+                pred_probs = torch.softmax(vitbase_model(image), dim=1)
 
                 # Calculate entropy
                 entropy = -torch.sum(pred_probs * torch.log(pred_probs), dim=1).item()
 
                 # Create a prediction label and prediction probability dictionary for each prediction class
                 pred_classes_and_probs = {class_names[i]: float(pred_probs[0][i]) for i in range(num_classes)}
-                pred_classes_and_probs["unknown"] = 0.0
 
                 # Get the top predicted class
                 top_class = max(pred_classes_and_probs, key=pred_classes_and_probs.get)
@@ -163,14 +132,6 @@ A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food typ
 
 # Configure the upload image area
 upload_input = gr.Image(type="pil", label="Upload Image", sources=['upload'], show_label=True, mirror_webcam=False)
-
-# Configure the dropdown option
-#model_dropdown = gr.Dropdown(
-#    choices=["Vision Transformer - 384x384 pixels (higher accuracy, slower predictions)",
-#             "Vision Transformer - 224x224 pixels (lower accuracy, faster predictions)"],
-#    value="Vision Transformer - 384x384 pixels (higher accuracy, slower predictions)",
-#    label="Select Model:"
-#)
 
 # Configure the sample image area
 food_vision_examples = [["examples/" + example] for example in os.listdir("examples")]

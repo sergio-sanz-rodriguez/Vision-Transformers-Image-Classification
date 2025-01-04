@@ -99,6 +99,6 @@
     "takoyaki": "Japanese snack made from batter, octopus, and tempura bits, served with takoyaki sauce.",
     "tiramisu": "Italian dessert with coffee-soaked ladyfingers, mascarpone cheese, and cocoa powder.",
     "tuna tartare": "Finely diced raw tuna, often mixed with soy sauce and served as an appetizer.",
-    "waffles": "Batter-based dish cooked in a grid pattern, served with syrup, fruit, or whipped cream.",
-    "unknown": "No sufficient confidence to classify the image."
+    "unknown": "No sufficient confidence to classify the image.",
+    "waffles": "Batter-based dish cooked in a grid pattern, served with syrup, fruit, or whipped cream."
 }

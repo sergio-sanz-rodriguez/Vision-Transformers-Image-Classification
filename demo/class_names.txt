@@ -98,5 +98,5 @@ tacos
 takoyaki
 tiramisu
 tuna tartare
-waffles
 unknown
+waffles

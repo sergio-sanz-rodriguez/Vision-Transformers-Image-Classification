@@ -117,6 +117,8 @@ class FixedLRSchedulerWrapper:
         """
         if epoch is not None:
             self.last_epoch = epoch  # Update the current epoch if provided
+        else:
+            self.last_epoch += 1  # Otherwise, increment the epoch counter
         
         if self.last_epoch < self.fixed_epoch:
             # Delegate to the original scheduler if before the fixed epoch
