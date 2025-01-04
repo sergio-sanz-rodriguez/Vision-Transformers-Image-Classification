@@ -95,7 +95,9 @@ As observed, the binary classification model achieves near perfect prediction.
 | Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch |
 <br>
 
-The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices. We can also observe that EfficientNetV2L achieves the highest accuracy (93%), followed very closely by ViT-Base/16-384. However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU. Therefore, **`ViT-Base/16-384`** is the model that achieves the best trade-off between accuracy and prediction speed.
+The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices. We can also observe that EfficientNetV2L achieves the highest accuracy (93%), followed very closely by ViT-Base/16-384. However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU.
+
+Therefore, **`ViT-Base/16-384`** is the model that achieves the best trade-off between accuracy and prediction speed.
 
 <div align="center">
   <img src="images/f1-score_vs_food-type.png" alt="F1-Score" width="1500"/>
