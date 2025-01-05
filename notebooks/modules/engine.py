@@ -843,14 +843,14 @@ def predict(model: torch.nn.Module,
     return torch.cat(y_preds)
 
 
-def pred_and_store(model: torch.nn.Module,
-                   test_dir: str, 
-                   transform: torchvision.transforms, 
-                   class_names: List[str], 
-                   percent_samples: float = 1.0,
-                   seed=42,
-                   device: str = "cuda" if torch.cuda.is_available() else "cpu"
-                   ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def predict_and_store(model: torch.nn.Module,
+                      test_dir: str, 
+                      transform: torchvision.transforms, 
+                      class_names: List[str], 
+                      percent_samples: float = 1.0,
+                      seed=42,
+                      device: str = "cuda" if torch.cuda.is_available() else "cpu"
+                      ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     
     """
     Predicts classes for a given dataset using a trained model and stores the per-sample results in dictionaries.
