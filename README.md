@@ -84,7 +84,7 @@ Since the model can occasionally misclassify images, the entropy of the classifi
 * Training time (RTX 4070): ~7 min/epoch
 
 <div align="center">
-  <img src="images/roc_classif_epoch13.png" alt="ROC Curve" width="1500"/>
+  <img src="images/roc_classif_epoch13.png" alt="ROC Curve" width="2000"/>
 </div>
 
 As observed, the binary classification model achieves near perfect prediction.
