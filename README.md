@@ -84,7 +84,7 @@ Since the model can occasionally misclassify images, the entropy of the classifi
 * Training time (RTX 4070): ~7 min/epoch
 
 <div align="center">
-  <img src="images/roc_classif.png" alt="ROC Curve" width="1500"/>
+  <img src="images/roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
 </div>
 
 As observed, the binary classification model achieves near perfect prediction.
@@ -108,7 +108,7 @@ The above table shows a comparison between different deep learning architectures
 Therefore, **`ViT-Base/16-384`** is the model that achieves the best trade-off between accuracy and prediction speed.
 
 <div align="center">
-  <img src="images/f1-score_vs_food-type_vit_model_2.png" alt="F1-Score" width="1500"/>
+  <img src="images/f1-score_vs_food-type_vit_model_3.png" alt="F1-Score" width="1500"/>
 </div>
 
 This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
