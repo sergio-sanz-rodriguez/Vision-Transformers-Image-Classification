@@ -71,7 +71,7 @@ As observed, the binary classification model achieves near perfect prediction.
 | Model size | 37 MB | 461 MB | 327 MB | 328 MB | 328 MB |
 | Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
 | Accuracy | 88.0% | 92.9% | 87.7% | 91.6% | 91.0% |
-| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.2 images/sec | 3.5 images/sec |
+| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.2 images/sec | 3.2 images/sec |
 | Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 50 images/sec | 50 images/sec | 50 images/sec |
 | Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~20 min/epoch |
 <br>
