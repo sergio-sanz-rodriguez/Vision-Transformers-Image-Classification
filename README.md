@@ -10,7 +10,7 @@
 
 ## 1. Overview
 
-This project focuses on the implementation, testing, and evaluation of Vision Transformer (ViT) models using PyTorch. The architecture is based on the groundbreaking paper titled ["An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale"](https://arxiv.org/abs/2010.11929) (see above Figure), which introduced the application of transformers—originally developed for Natural Language Processing (NLP)—to computer vision.
+This project focuses on the implementation, testing, and evaluation of **Vision Transformer (ViT)** models using PyTorch. The architecture is based on the groundbreaking paper titled ["An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale"](https://arxiv.org/abs/2010.11929) (see above Figure), which introduced the application of transformers—originally developed for Natural Language Processing (NLP)—to computer vision.
 
 The primary objective is to assess the accuracy and performance of ViT models using the [Food-101](https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/) dataset, which consists of 101 food categories. Additionally, a web application showcasing the selected model has been developed to demonstrate its practical use in real-world scenarios.
 
@@ -20,9 +20,9 @@ The following web app has been created on Hugging Face to showcase the ViT model
 
 https://huggingface.co/spaces/sergio-sanz-rodriguez/transform-eats
 
-## 3. Description of the Architecture
+## 3. Description of the ViT Architecture
 
-A Vision Transformer (ViT) is a state-of-the-art neural network that utilizes the attention mechanism as its primary learning layer. It divides an image into square patches and establishes relationships between them by identifying the most relevant regions based on contextual information. The multi-head attention mechanism processes these patches and generates a sequence of vectors, each representing a patch along with its contextual features.
+A ViT is a state-of-the-art neural network that utilizes the attention mechanism as its primary learning layer. It divides an image into square patches and establishes relationships between them by identifying the most relevant regions based on contextual information. The multi-head attention mechanism processes these patches and generates a sequence of vectors, each representing a patch along with its contextual features.
 
 These vectors are then passed through a series of non-linear multilayer perceptrons (MLPs), which further extract complex relationships between the patches, enabling the model to understand and analyze the image at a high level. 
 
@@ -32,19 +32,71 @@ One of the outputs of the transformer encoder, typically the representation of t
   <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="1000"/>
 </div>
 
-Within the scope of this project, two ViT model architecutes have been implemented and evaluated: **ViT-Base** and **ViT-Large**.
+Within the scope of this project, different ViT model architecutes have been implemented from scratch and evaluated.
 
-## 4. Proposed Model Architecture
+## 4. Proposed Model Architectures
 
-The classification system comprises two deep learning models, as depicted in the figure below. The first model is an EfficientNetB0 classifier designed to distinguish between food and non-food images. If an image is classified as food, it is passed to the second deep learning model, a **`ViT-Base/16-384`** network. This model processes images resized to 384×384 pixels and divided into 16×16 patches, classifying them into specific food categories.
+The classification system includes two deep learning approaches: ViT Lite and ViT Pro. The first approach is able to make faster prediction and still reliable predictions, whereas the second one makes more accurate predictions at the expense of longer computation time.
 
-In addition to the original 101 categories, the system includes an additional category labeled "unknown." This class was created using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data) dataset, which contains 251 food types. The unknown category contains food (and some non-food) images that do not fit into any of the other predefined classes.
+### 4.1. ⚡ ViT Lite ⚡ 
 
-Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
+The ViT Lite architecture is illustrated in the figure below. The process begins with an **EfficientNetB0** classifier, which determines whether the input image depicts food or non-food. If the image is classified as food, it is passed to a second deep learning model, a **ViT-Base/16-384** network. This network is also referred to as **Model B** for simplicity.
+
+This model resizes images to **384×384 pixels**, divides them into **16×16 patches**, and classifies them into 101 food categories. To handle uncertain predictions, the approach calculates the entropy of the probability vector produced by the ViT model. High entropy indicates uncertainty, and such images are classified as unknown.
 
 <div align="center">
-  <img src="images/model_pipeline.png" alt="Into Picture" width="500"/>
+  <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="500"/>
 </div>
+
+### 4.2. 💎 ViT Pro 💎
+
+This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a ViT-Base/16-384, is designed to recognize the same 101 food types along with an extra category labeled "unknown". This network is also named **"Model C"** for simplicity.
+
+If both classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
+
+<div align="center">
+  <img src="images/model_pipeline_2.png" alt="ViT Pro Pipeline" width="500"/>
+</div>
+
+## 5.Model Performance
+
+**Binary classifier (Food vs Non-Food):**
+* Model architecture: EfficientNetB0
+* Model size: 16 MB
+* Number of parameters: 4.0 million
+* ROC AUC score: 1.0
+* Recall at 0% false positive rate: 99.3%
+* Training time (RTX 4070): ~4 min/epoch
+
+<div align="center">
+  <img src="images/roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
+</div>
+
+As observed, the binary classification model achieves near perfect prediction.
+
+**Food classifier:**
+| Parameter | EffNet A | EffNet B | ViT A | ViT B | ViT C |
+| ----- | ----- | ----- | ----- | ----- | ----- | 
+| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
+| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels | 384x384 pixels |
+| Number of classes | 101 | 101 | 101 | 101 | 101 + "unknown" |
+| Model size | 37 MB | 461 MB | 327 MB | 328 MB | 328 MB |
+| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
+| Accuracy | 88.0% | 92.9% | 87.7% | 91.6% | 91.0% |
+| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.2 images/sec | 3.2 images/sec |
+| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 50 images/sec | 50 images/sec | 50 images/sec |
+| Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~20 min/epoch |
+<br>
+
+The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices. We can also observe that EfficientNetV2L achieves the highest accuracy (92.9%), followed very closely by ViT-Base/16-384 (91.6%). However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU.
+
+Therefore, **`ViT-Base/16-384`** is the model that achieves the best trade-off between accuracy and prediction speed.
+
+<div align="center">
+  <img src="images/f1-score_vs_food-type_vit_model_3.png" alt="F1-Score" width="1500"/>
+</div>
+
+This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 
 ## 5. Description of the Notebooks
 
@@ -71,45 +123,3 @@ Since the model can occasionally misclassify images, the entropy of the classifi
 * [engine.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/engine.py): Contains functions to handle the training, validation, and inference processes of a neural network.
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
 * [scheduler.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/scheduler.py): A collection of custome learning rate schedulers. Some classes have been taken from [kamrulhasanrony](https://github.com/kamrulhasanrony/Vision-Transformer-based-Food-Classification/tree/master). Many thanks!
-
-
-## 6.Model Performance
-
-**Binary classifier (Food vs Non-Food):**
-* Model architecture: EfficientNetB0
-* Model size: 16 MB
-* Number of parameters: 4.0 million
-* ROC AUC score: 1.0
-* Recall at 0% false positive rate: 99.3%
-* Training time (RTX 4070): ~7 min/epoch
-
-<div align="center">
-  <img src="images/roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
-</div>
-
-As observed, the binary classification model achieves near perfect prediction.
-
-**Food classifier:**
-| Parameter | EffNet Model 1 | EffNet Model 2 | ViT Model 1 | ViT Model 2 | ViT Model 3
-| ----- | ----- | ----- | ----- | ----- | ----- | 
-| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
-| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels | 384x384 pixels |
-| Number of classes | 101 | 101 | 101 | 101 | 101 + "unknown" |
-| Model size | 37 MB | 461 MB | 327 MB | 328 MB | 328 MB |
-| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
-| Accuracy | 88.0% | 92.9% | 87.7% | 91.6% | 91.3% |
-| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.0 images/sec | 3.5 images/sec |
-| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 50 images/sec | 50 images/sec | 50 images/sec |
-| Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~20 min/epoch |
-<br>
-
-The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices. We can also observe that EfficientNetV2L achieves the highest accuracy (92.9%), followed very closely by ViT-Base/16-384 (91.6%). However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU.
-
-Therefore, **`ViT-Base/16-384`** is the model that achieves the best trade-off between accuracy and prediction speed.
-
-<div align="center">
-  <img src="images/f1-score_vs_food-type_vit_model_3.png" alt="F1-Score" width="1500"/>
-</div>
-
-This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
-
