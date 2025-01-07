@@ -45,7 +45,7 @@ The ViT Lite architecture is illustrated in the figure below. The process begins
 This model resizes images to **384×384 pixels**, divides them into **16×16 patches**, and classifies them into 101 food categories. To handle uncertain predictions, the approach calculates the entropy of the probability vector produced by the ViT model. High entropy indicates uncertainty, and such images are classified as unknown.
 
 <div align="center">
-  <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="700"/>
+  <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="500"/>
 </div>
 
 ### 4.2. 💎 ViT Pro 💎
