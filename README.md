@@ -29,7 +29,7 @@ These vectors are then passed through a series of non-linear multilayer perceptr
 One of the outputs of the transformer encoder, typically the representation of the classification token (a special token added to the input sequence), is passed to a simple neural network (often a single-layer classifier) that determines the class to which the input image belongs.
 
 <div align="center">
-  <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="500"/>
+  <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="1000"/>
 </div>
 
 Within the scope of this project, different ViT model architecutes have been implemented from scratch and evaluated.
@@ -45,7 +45,7 @@ The ViT Lite architecture is illustrated in the figure below. The process begins
 This model resizes images to **384×384 pixels**, divides them into **16×16 patches**, and classifies them into 101 food categories. To handle uncertain predictions, the approach calculates the entropy of the probability vector produced by the ViT model. High entropy indicates uncertainty, and such images are classified as unknown.
 
 <div align="center">
-  <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="750"/>
+  <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="700"/>
 </div>
 
 ### 4.2. 💎 ViT Pro 💎
