@@ -89,7 +89,8 @@ def create_effnetb0(
         model_weights_dir: Path,
         model_weights_name: str,
         num_classes: int=2,
-        dropout: float=0.2
+        dropout: float=0.2,
+        compile:bool=False
         ):
     """Creates an EfficientNetB0 feature extractor model and transforms.
 
@@ -114,6 +115,10 @@ def create_effnetb0(
         torch.nn.Linear(in_features=1280, 
                         out_features=num_classes,
                         bias=True))
+    
+    # Compile the model
+    if compile:
+        effnetb0_model = torch.compile(effnetb0_model, backend="aot_eager")
     
     # Create the model directory path
     model_dir_path = Path(model_weights_dir)
