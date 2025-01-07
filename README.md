@@ -55,7 +55,7 @@ This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/
 If both classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
 
 <div align="center">
-  <img src="images/model_pipeline_2.png" alt="ViT Pro Pipeline" width="500"/>
+  <img src="images/model_pipeline_2.png" alt="ViT Pro Pipeline" width="1000"/>
 </div>
 
 ## 5.Model Performance
