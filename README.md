@@ -40,7 +40,7 @@ The classification system includes two deep learning approaches: ViT Lite and Vi
 
 ### 4.1. ⚡ ViT Lite ⚡ 
 
-The ViT Lite architecture is illustrated in the figure below. The process begins with an **EfficientNetB0** classifier, which determines whether the input image depicts food or non-food. If the image is classified as food, it is passed to a second deep learning model, a **ViT-Base/16-384** network. This network is also referred to as **Model B** for simplicity.
+The ViT Lite architecture is illustrated in the figure below. The process begins with an **EfficientNetB0** classifier, which determines whether the input image depicts food or non-food. If the image is classified as food, it is passed to a second deep learning model, a **ViT-Base/16-384** network. This network is also referred to as **ViT B** for simplicity.
 
 This model resizes images to **384×384 pixels**, divides them into **16×16 patches**, and classifies them into 101 food categories. To handle uncertain predictions, the approach calculates the entropy of the probability vector produced by the ViT model. High entropy indicates uncertainty, and such images are classified as unknown.
 
@@ -50,7 +50,7 @@ This model resizes images to **384×384 pixels**, divides them into **16×16 pat
 
 ### 4.2. 💎 ViT Pro 💎
 
-This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a ViT-Base/16-384, is designed to recognize the same 101 food types along with an extra category labeled "unknown". This network is also named **"Model C"** for simplicity.
+This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a ViT-Base/16-384, is designed to recognize the same 101 food types along with an extra category labeled "unknown". This network is also named **"ViT C"** for simplicity.
 
 If both classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
 
