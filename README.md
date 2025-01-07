@@ -50,7 +50,7 @@ This model resizes images to **384×384 pixels**, divides them into **16×16 pat
 
 ### 4.2. 💎 ViT Pro 💎
 
-This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a **ViT-Base/16-384**, is designed to recognize the same 101 food types along with an extra category labeled "unknown". This network is also named **"ViT C"** for simplicity.
+This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a **ViT-Base/16-384**, is designed to recognize the same 101 food types along with an **extra category labeled "unknown"**. This network is also named **"ViT C"** for simplicity.
 
 If both classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
 
