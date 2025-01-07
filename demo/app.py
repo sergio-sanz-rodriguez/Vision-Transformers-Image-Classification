@@ -89,12 +89,18 @@ def predict(image, model=pro_model) -> Tuple[Dict, str, str]:
 
         # Transform the target image and add a batch dimension
         image = transforms(image).unsqueeze(0)
+
+        # Check out model parameter
+        if model == None:
+            model = pro_model
         
         # Make prediction...
         with torch.inference_mode():
             
             # If the picture is food
             if effnetb0_model(image)[:,1].cpu() >= BINARY_CLASSIF_THR:
+
+                print(model)
 
                 # If Pro
                 if model == pro_model:
