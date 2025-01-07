@@ -3,6 +3,7 @@
 import os
 import torch
 import json
+import string
 import gradio as gr
 from model import create_vitbase_model, create_effnetb0
 from timeit import default_timer as timer
@@ -38,7 +39,7 @@ effnetb0_model = create_effnetb0(
 # Load the ViT-Base/16 transformer with input image of 384x384 pixels and 101 + unknown classes
 vitbase_model_102 = create_vitbase_model(
     model_weights_dir=".",
-    model_weights_name="vitbase16_102_2025-01-07.pth",
+    model_weights_name="vitbase16_102_2025-01-04.pth",
     img_size=384,
     num_classes=num_classes_102,
     compile=True
@@ -100,9 +101,7 @@ def predict(image, model=pro_model) -> Tuple[Dict, str, str]:
             # If the picture is food
             if effnetb0_model(image)[:,1].cpu() >= BINARY_CLASSIF_THR:
 
-                print(model)
-
-                # If Pro
+                # If ViT Pro
                 if model == pro_model:
 
                     # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
@@ -201,69 +200,91 @@ def predict(image, model=pro_model) -> Tuple[Dict, str, str]:
         error_message = f"<p style='color:red;'>Error during prediction: {str(e)}</p>"
         return {}, "N/A", "N/A", error_message
 
-# Function to handle the model selection state
-def handle_model_selection(model):
-    return model  # Return the current model
-
-# Configure and design the Gradio App
+#######################################
+# Configure and design the Gradio App #
+#######################################
 
 # Create title, description, and examples
 title = "Transform-Eats Large<br>🥪🥗🥣🥩🍝🍣🍰"
 description = f"""
 A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
-
-### Supported Food Types
-{', '.join(class_names_102[:-1])}.
 """
 
-# Configure the upload image area
-upload_input = gr.Image(
-    type="pil",
-    label="Upload Image",
-    sources=['upload'],
-    show_label=True,
-    mirror_webcam=False
+# Group food items alphabetically
+grouped_foods = {letter: [] for letter in string.ascii_uppercase}
+for food in class_names_102:
+    first_letter = food[0].upper()  # Get the first letter and make it uppercase
+    if first_letter in grouped_foods:
+        grouped_foods[first_letter].append(food)
+
+# Function to display food items based on button click
+def display_foods(letter):
+    items = grouped_foods.get(letter, [])
+    return f"**{letter}:** {', '.join(items)}" if items else f"No items for {letter}"
+
+# Configure the Gradio interface
+with gr.Blocks(theme="ocean") as demo:
+
+    # Title and description (at the top)
+    gr.Markdown(f"<h1>{title}</h1>")
+    gr.Markdown(f"<p>{description}</p>")
+
+    # Title for supported meals
+    supported_meals_title = gr.Markdown("### Supported Meals")
+
+    # Output display area
+    output = gr.Markdown()
+
+    # Add the supported meals title and buttons in the layout
+    with gr.Column():
+
+        # Keep the title at the top
+        supported_meals_title  
+        
+        with gr.Row():
+            buttons = []
+            for letter in string.ascii_uppercase:
+                button = gr.Button(letter, elem_id=f"button_{letter}", size="sm", min_width=40)
+                button.click(display_foods, inputs=[gr.Textbox(value=letter, visible=False)], outputs=output)
+                buttons.append(button)
+
+    # Configure the upload image area
+    upload_input = gr.Image(
+        type="pil",
+        label="Upload Image",
+        sources=['upload'],
+        show_label=True,
+        mirror_webcam=False
     )
 
-model_radio = gr.Radio(
-    choices=[lite_model, pro_model],
-    value=pro_model,
-    label="Select the AI algorithm:",
-    info="ViT Pro is selected by default if none is chosen."
+    model_radio = gr.Radio(
+        choices=[lite_model, pro_model],
+        value=pro_model,
+        label="Select the AI algorithm:",
+        info="ViT Pro is selected by default if none is chosen."
     )
 
-# Define the status message output field to display error messages
-status_output = gr.HTML(label="Status:")
+    # Define the status message output field to display error messages
+    status_output = gr.HTML(label="Status:")
 
-# Set allow flagging
-flagging_mode = "never" # "manual"
+    # Set allow flagging
+    flagging_mode = "never"  # "manual"
 
-# Configure the sample image area
-# food_vision_examples = [["examples/" + example] for example in os.listdir("examples")]
+    # Author
+    article = "Created by Sergio Sanz."
 
-# Author
-article = "Created by Sergio Sanz."
-
-# Create sliders for the thresholds
-#prob = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.4, label="Probability Threshold")
-#entropy = gr.Slider(minimum=0, maximum=4.615, step=0.5, value=2.5, label="Entropy Threshold")
-
-# Create the Gradio demo
-demo = gr.Interface(fn=predict,                                                # mapping function from input to outputs
-                    inputs=[upload_input, model_radio],                        # inputs
-                    outputs=[gr.Label(num_top_classes=3, label="Prediction"), 
-                             gr.Textbox(label="Prediction time:"),
-                             gr.Textbox(label="Food Description:"),
-                             status_output
-                             ],                                                # outputs
-                    #examples=food_vision_examples,                            # Create examples list from "examples/" directory
-                    #cache_examples=True,                                      # Cache the examples
-                    title=title,                                               # Title of the app
-                    description=description,                                   # Brief description of the app
-                    article=article,                                           # Created by...
-                    flagging_mode=flagging_mode,                               # Only For debugging
-                    flagging_options=["correct", "incorrect"],                 # Only For debugging
-                    theme="ocean")                                             # Theme
+    # Create the Gradio demo
+    gr.Interface(
+        fn=predict,                                                        # mapping function from input to outputs
+        inputs=[upload_input, model_radio],                                # inputs
+        outputs=[gr.Label(num_top_classes=3, label="Prediction"), 
+                 gr.Textbox(label="Prediction time:"),
+                 gr.Textbox(label="Food Description:"),
+                 status_output],                                           # outputs
+                article=article,                                           # Created by...
+                flagging_mode=flagging_mode,                               # Only For debugging
+                flagging_options=["correct", "incorrect"],                 # Only For debugging
+                )  
 
 # Launch the demo!
 demo.launch()
