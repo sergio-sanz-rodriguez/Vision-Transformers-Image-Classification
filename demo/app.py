@@ -206,7 +206,7 @@ title = "Transform-Eats Large<br>🥪🥗🥣🥩🍝🍣🍰"
 description = f"""
 A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
 
-### Supported Food Types:
+### Supported Food Types
 {', '.join(class_names_102[:-1])}.
 """
 
