@@ -32,18 +32,30 @@ One of the outputs of the transformer encoder, typically the representation of t
   <img src="images/vit-paper-figure-1-architecture-overview.png" alt="Into Picture" width="1000"/>
 </div>
 
-Within the scope of this project, two ViT model architecutes have been implemented and evaluated: **ViT-Base** and **ViT-Large**.
+Within the scope of this project, different ViT model architecutes have been implemented from scratch and evaluated.
 
-## 4. Proposed Model Architecture
+## 4. Proposed Model Architectures
 
-The classification system comprises two deep learning models, as depicted in the figure below. The first model is an EfficientNetB0 classifier designed to distinguish between food and non-food images. If an image is classified as food, it is passed to the second deep learning model, a **`ViT-Base/16-384`** network. This model processes images resized to 384×384 pixels and divided into 16×16 patches, classifying them into specific food categories.
+The classification system includes two deep learning approaches: ViT Lite and ViT Pro. The first approach is able to make faster prediction and still reliable predictions, whereas the second one makes more accurate predictions at the expense of longer computation time.
 
-In addition to the original 101 categories, the system includes an additional category labeled "unknown." This class was created using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data) dataset, which contains 251 food types. The unknown category contains food (and some non-food) images that do not fit into any of the other predefined classes.
+### 4.1. ⚡ ViT Lite ⚡ 
 
-Since the model can occasionally misclassify images, the entropy of the classification vector is analyzed. A high entropy indicates a higher likelihood of misclassification, as multiple classes may exhibit similar prediction probabilities. This entropy-based method is a straightforward approach to enhance prediction accuracy, particularly because the classification model was not trained to account for an "unknown" class.
+The ViT Lite architecture is illustrated in the figure below. The process begins with an **EfficientNetB0** classifier, which determines whether the input image depicts food or non-food. If the image is classified as food, it is passed to a second deep learning model, a **ViT-Base/16-384** network. This network is also referred to as **Model B** for simplicity.
+
+This model resizes images to **384×384 pixels**, divides them into **16×16 patches**, and classifies them into 101 food categories. To handle uncertain predictions, the approach calculates the entropy of the probability vector produced by the ViT model. High entropy indicates uncertainty, and such images are classified as unknown.
 
 <div align="center">
-  <img src="images/model_pipeline.png" alt="Into Picture" width="500"/>
+  <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="500"/>
+</div>
+
+### 4.2. 💎 ViT Pro 💎
+
+This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a ViT-Base/16-384, is designed to recognize the same 101 food types along with an extra category labeled "unknown". This network is also named **"Model C"** for simplicity.
+
+If both classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
+
+<div align="center">
+  <img src="images/model_pipeline_2.png" alt="ViT Pro Pipeline" width="500"/>
 </div>
 
 ## 5.Model Performance
