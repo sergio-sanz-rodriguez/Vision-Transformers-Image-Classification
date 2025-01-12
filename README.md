@@ -60,21 +60,35 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
 
 ## 5.Model Performance
 
-**Binary classifier (Food vs Non-Food):**
+**Binary Classifier: Food vs Non-Food**
 * Model architecture: EfficientNetB0
 * Model size: 16 MB
 * Number of parameters: 4.0 million
 * ROC AUC score: 1.0
-* Recall at 0% false positive rate: 99.3%
+* False positive rate at target 100% recall: 0.16%
 * Training time (RTX 4070): ~4 min/epoch
 
 <div align="center">
-  <img src="images/roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
+  <img src="images/food_nofood_roc_classif_nofalsenegatives_epoch13.png" alt="ROC Curve" width="3000"/>
 </div>
 
 As observed, the binary classification model achieves near perfect prediction.
 
-**Food classifier:**
+**Binary Classifier: Known vs Unknown**
+* Model architecture: EfficientNetB0
+* Model size: 16 MB
+* Number of parameters: 4.0 million
+* ROC AUC score: 0.997
+* False positive rate at target 99.5% recall: 22.6%
+* Training time (RTX 4070): ~4 min/epoch
+
+<div align="center">
+  <img src="images/known_unknown_roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
+</div>
+
+As observed, the binary classification model also achieves near perfect prediction.
+
+**Food Classifier**
 | Parameter | EffNet A | EffNet B | ViT A | ViT B | ViT C |
 | ----- | ----- | ----- | ----- | ----- | ----- | 
 | Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
@@ -103,6 +117,7 @@ This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 * [Custom_Data_Creation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation.ipynb): This notebook downloads and creates the image dataset for the food classifier network, splitting the data into train and test subsets.
 * [Custom_Data_Creation_Classification.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation_Classification.ipynb): This notebook downloads and creates the image dataset for the binary classification network, splitting the data into train and test subsets.
 * [FoodNoFood_Classification_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/FoodNoFood_Classification_Modeling.ipynb): It implements a binary classification model to distinguish between food and non-food images, using the simple EfficientNetB0 architecture.
+* [KnownUnknown_Classification_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/KnownUnknown_Classification_Modeling.ipynb): It implements a binary classification model to distinguish between known and unknown food categories, using the simple EfficientNetB0 architecture.
 * [EfficientNetB2_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetB2_Modeling.ipynb): In this notebook, an EfficientNetB2 Convolutional Neural Network (CNN) is trained for different combinations of parameters, such as batch size, hidden units, and number of epochs.
 * [EfficientNetV2L_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetV2L_Modeling.ipynb): In this notebook, an EfficientNetV2L CNN is trained for different combinations of parameters, such as batch size, hidden units, and number of epochs.
 * [ViT_Modeling_v1.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v1.ipynb): This notebook outlines the creation, compilation, and training of multiple ViT-Base and ViT-Large networks, by applying both transfer learning and regular learning of the whole backbones. Several training configurations have been tested in order to find the optimal tunning for these architectures.
