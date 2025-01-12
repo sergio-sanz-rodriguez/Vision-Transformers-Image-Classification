@@ -69,7 +69,7 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
 * Training time (RTX 4070): ~4 min/epoch
 
 <div align="center">
-  <img src="images/food_nofood_roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
+  <img src="images/food_nofood_roc_classif_nofalsenegatives_epoch13.png" alt="ROC Curve" width="3000"/>
 </div>
 
 **Binary classifier (Known vs Unknown):**
