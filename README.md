@@ -65,7 +65,19 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
 * Model size: 16 MB
 * Number of parameters: 4.0 million
 * ROC AUC score: 1.0
-* Recall at 0% false positive rate: 99.3%
+* False positive rate at target 100% recall: 0.16%
+* Training time (RTX 4070): ~4 min/epoch
+
+<div align="center">
+  <img src="images/food_nofood_roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
+</div>
+
+**Binary classifier (Known vs Unknown):**
+* Model architecture: EfficientNetB0
+* Model size: 16 MB
+* Number of parameters: 4.0 million
+* ROC AUC score: 0.997
+* False positive rate at target 99.5% recall: 22.6%
 * Training time (RTX 4070): ~4 min/epoch
 
 <div align="center">
