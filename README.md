@@ -72,6 +72,8 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
   <img src="images/food_nofood_roc_classif_nofalsenegatives_epoch13.png" alt="ROC Curve" width="3000"/>
 </div>
 
+As observed, the binary classification model achieves near perfect prediction.
+
 **Binary classifier (Known vs Unknown):**
 * Model architecture: EfficientNetB0
 * Model size: 16 MB
@@ -84,7 +86,7 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
   <img src="images/known_unknown_roc_classif_epoch13.png" alt="ROC Curve" width="3000"/>
 </div>
 
-As observed, the binary classification model achieves near perfect prediction.
+As observed, the binary classification model also achieves near perfect prediction.
 
 **Food classifier:**
 | Parameter | EffNet A | EffNet B | ViT A | ViT B | ViT C |
