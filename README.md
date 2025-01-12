@@ -60,7 +60,7 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
 
 ## 5.Model Performance
 
-**Binary classifier (Food vs Non-Food):**
+**Binary Classifier: Food vs Non-Food**
 * Model architecture: EfficientNetB0
 * Model size: 16 MB
 * Number of parameters: 4.0 million
@@ -74,7 +74,7 @@ If both classifiers agree on the top-class prediction, it is highly likely that 
 
 As observed, the binary classification model achieves near perfect prediction.
 
-**Binary classifier (Known vs Unknown):**
+**Binary Classifier: Known vs Unknown**
 * Model architecture: EfficientNetB0
 * Model size: 16 MB
 * Number of parameters: 4.0 million
@@ -88,7 +88,7 @@ As observed, the binary classification model achieves near perfect prediction.
 
 As observed, the binary classification model also achieves near perfect prediction.
 
-**Food classifier:**
+**Food Classifier**
 | Parameter | EffNet A | EffNet B | ViT A | ViT B | ViT C |
 | ----- | ----- | ----- | ----- | ----- | ----- | 
 | Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
