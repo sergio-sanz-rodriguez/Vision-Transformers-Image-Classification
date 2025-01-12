@@ -50,12 +50,12 @@ This model resizes images to **384×384 pixels**, divides them into **16×16 pat
 
 ### 4.2. 💎 ViT Pro 💎
 
-This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional ViT network to enhance prediction accuracy. The additional network, also a **ViT-Base/16-384**, is designed to recognize the same 101 food types along with an **extra category labeled "unknown"**.  This class was created using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data), which contains 251 food types. The unknown category contains food (and some non-food) images that do not fit into any of the other predefined classes. This network is also named **"ViT C"** for simplicity.
+This advanced ViT architecture builds upon the same EfficientNetB0 and ViT-Base/16-384 algorithms, integrating an additional classification model and another ViT network to enhance prediction accuracy. The additional classification network is also an EfficientNetB0 and aims at differenciating between known and unknown classe. The new ViT network, also a **ViT-Base/16-384**, is designed to recognize the same 101 food types along with an **extra category labeled "unknown"**. This class was created using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data), which contains 251 food types. The unknown category for both new models contains food (and some non-food) images that do not fit into any of the other predefined classes. The additional ViT network is also named **"ViT C"** for simplicity.
 
-If both classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
+If both ViT classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
 
 <div align="center">
-  <img src="images/model_pipeline_2.png" alt="ViT Pro Pipeline" width="1000"/>
+  <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="1000"/>
 </div>
 
 ## 5.Model Performance
