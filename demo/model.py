@@ -1,5 +1,6 @@
 import torch
 import torchvision
+from torch import softmax
 from pathlib import Path
 from vision_transformer import ViT
 
@@ -23,6 +24,7 @@ def load_model(model: torch.nn.Module,
     Returns:
     The loaded PyTorch model.
     """
+    
     # Create the model directory path
     model_dir_path = Path(model_weights_dir)
 
@@ -44,6 +46,7 @@ def create_vitbase_model(
     num_classes:int=101,
     compile:bool=False
     ):
+
     """
     Creates a ViT-B/16 model with the specified number of classes.
 
@@ -55,7 +58,8 @@ def create_vitbase_model(
 
     Returns:
     The created ViT-B/16 model.
-    """    
+    """ 
+
     # Instantiate the model
     vitbase16_model = ViT(
         img_size=img_size,
@@ -92,6 +96,7 @@ def create_effnetb0(
         dropout: float=0.2,
         compile:bool=False
         ):
+
     """Creates an EfficientNetB0 feature extractor model and transforms.
 
     Args:
@@ -110,11 +115,17 @@ def create_effnetb0(
     effnetb0_model = torchvision.models.efficientnet_b0(weights=weights).to('cpu')
 
     # Recreate the classifier layer and seed it to the target device
-    effnetb0_model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout(p=dropout, inplace=True), 
-        torch.nn.Linear(in_features=1280, 
-                        out_features=num_classes,
-                        bias=True))
+    if dropout != 0.0:
+        effnetb0_model.classifier = torch.nn.Sequential(
+            torch.nn.Dropout(p=dropout, inplace=True), 
+            torch.nn.Linear(in_features=1280, 
+                            out_features=num_classes,
+                            bias=True))
+    else:
+        effnetb0_model.classifier = torch.nn.Sequential(
+            torch.nn.Linear(in_features=1280,
+                            out_features=num_classes,
+                            bias=True))
     
     # Compile the model
     if compile:

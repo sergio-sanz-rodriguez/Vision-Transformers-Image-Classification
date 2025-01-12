@@ -27,13 +27,24 @@ food_descriptions_json = "food_descriptions.json"
 with open(food_descriptions_json, 'r') as f:
     food_descriptions = json.load(f)
 
-# Instantiate the model
-classification_model_name_path = "effnetb0_2025-01-05_epoch13.pth"
-effnetb0_model = create_effnetb0(
+# Instantiate the classfication model for recognizing between food and non-food images
+classification_model_name_path_1 = "effnetb0_2025-01-05_epoch13.pth"
+effnetb0_model_1 = create_effnetb0(
     model_weights_dir=".",
-    model_weights_name=classification_model_name_path,
+    model_weights_name=classification_model_name_path_1,
     num_classes=2,
-    compile=True
+    compile=True,
+    dropout=0.2
+    )
+
+# Instantiate the model for recognizing between known and unknown food images
+classification_model_name_path_2 = "effnetb0_2_2025-01-12_epoch13.pth"
+effnetb0_model_2 = create_effnetb0(
+    model_weights_dir=".",
+    model_weights_name=classification_model_name_path_2,
+    num_classes=2,
+    compile=True,
+    dropout=0.0
     )
 
 # Load the ViT-Base/16 transformer with input image of 384x384 pixels and 101 + unknown classes
@@ -53,8 +64,18 @@ vitbase_model_101 = create_vitbase_model(
     compile=True
 )
 
-# Specify manual transforms for model_2
-transforms = v2.Compose([    
+# Specify manual transforms for ViTs
+transforms_eff = v2.Compose([    
+    v2.Resize((256, 256)),
+    v2.CenterCrop((224, 224)),    
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
+    v2.Normalize(mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]) 
+])
+
+# Specify manual transforms for ViTs
+transforms_vit = v2.Compose([    
     v2.Resize((384)), #v2.Resize((384, 384)),
     v2.CenterCrop((384, 384)),    
     v2.ToImage(),
@@ -65,31 +86,81 @@ transforms = v2.Compose([
 
 
 # Put models into evaluation mode and turn on inference mode
-effnetb0_model.eval()
+effnetb0_model_1.eval()
+effnetb0_model_2.eval()
 vitbase_model_102.eval()
 vitbase_model_101.eval()
 
 # Set thresdholds
-BINARY_CLASSIF_THR = 0.9989122152328491
+BINARY_CLASSIF_THR_1 = 0.8310611844062805
+BINARY_CLASSIF_THR_2 = 0.06102316826581955 # 41% FPR
+#BINARY_CLASSIF_THR_2 = 0.0728086531162262  # 23% FPR
 MULTICLASS_CLASSIF_THR = 0.5
-ENTROPY_THR = 2.6
+ENTROPY_THR = 2.7
 
 # Set model names
 lite_model = "⚡ ViT Lite ⚡ faster, less accurate prediction"
 pro_model =  "💎 ViT Pro 💎 slower, more accurate prediction"
 
-# Predict method
-def predict(image, model=pro_model) -> Tuple[Dict, str, str]:
+# Computes the entropy
+def entropy(pred_probs):
 
-    """Transforms and performs a prediction on image and returns prediction and time taken.
     """
+    Computes the entropy of the predicted probabilities.
+
+    Args:
+        pred_probs (torch.Tensor): A tensor containing the predicted probabilities.
+
+    Returns:
+        float: The entropy value.
+    """
+
+    return -torch.sum(pred_probs * torch.log(pred_probs)).item()
+
+# Computes the model prediction outputs as probabilities
+def predict(image, model):
+
+    """
+    Computes the predicted class probabilities for a given image using the provided model.
+
+    Args:
+        image (torch.Tensor): Input tensor representing the image or batch of images.
+                              The tensor should be preprocessed as required by the model.
+        model (torch.nn.Module): The trained model used to make predictions.
+
+    Returns:
+        torch.Tensor: A tensor containing the probabilities for each class. 
+                      The output is normalized using the softmax function.
+    """
+    
+    return torch.softmax(model(image), dim=1)
+
+# Predict method
+def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
+
+    """
+    Transforms and performs a prediction on the image and returns prediction details.
+
+    Args:
+        image (torch.Tensor): Input tensor representing the image.
+                              It should be preprocessed as required by the model.
+        model (torch.nn.Module, optional): The trained model used for predictions.
+                                           Defaults to pro_model.
+
+    Returns:
+        Tuple[Dict, str, str]: A tuple containing:
+            - Dictionary of predicted class probabilities.
+            - Time taken for prediction as a string.
+            - Description of the top predicted class.
+    """
+
     try:
 
         # Start the timer
         start_time = timer()
 
         # Transform the target image and add a batch dimension
-        image = transforms(image).unsqueeze(0)
+        image_eff = transforms_eff(image).unsqueeze(0)
 
         # Check out model parameter
         if model == None:
@@ -99,17 +170,16 @@ def predict(image, model=pro_model) -> Tuple[Dict, str, str]:
         with torch.inference_mode():
             
             # If the picture is food
-            if effnetb0_model(image)[:,1].cpu() >= BINARY_CLASSIF_THR:
+            if predict(image_eff, effnetb0_model_1)[:,1] >= BINARY_CLASSIF_THR_1:
+
+                image_vit = transforms_vit(image).unsqueeze(0)
 
                 # If ViT Pro
                 if model == pro_model:
 
                     # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
-                    pred_probs_102 = torch.softmax(vitbase_model_102(image), dim=1)
-                    pred_probs_101 = torch.softmax(vitbase_model_101(image), dim=1)
-
-                    # Calculate entropy
-                    entropy = -torch.sum(pred_probs_101 * torch.log(pred_probs_101), dim=1).item()
+                    pred_probs_102 = predict(image_vit, vitbase_model_102)
+                    pred_probs_101 = predict(image_vit, vitbase_model_101)
 
                     # Create a prediction label and prediction probability dictionary for each prediction class
                     pred_classes_and_probs_102 = {class_names_102[i]: float(pred_probs_102[0][i]) for i in range(num_classes_102)}
@@ -119,56 +189,59 @@ def predict(image, model=pro_model) -> Tuple[Dict, str, str]:
                     # Get the top predicted class
                     top_class_102 = max(pred_classes_and_probs_102, key=pred_classes_and_probs_102.get)
                     sec_class_102 = sorted(pred_classes_and_probs_102.items(), key=lambda x: x[1], reverse=True)[1][0]
-                    top_class_101 = max(pred_classes_and_probs_101, key=pred_classes_and_probs_101.get)
+                    top_class_101 = max(pred_classes_and_probs_101, key=pred_classes_and_probs_101.get)                    
 
-                    # If the image is likely to be an unknown category
-                    if pred_probs_101[0][class_names_101.index(top_class_101)] <= MULTICLASS_CLASSIF_THR and entropy > ENTROPY_THR:
+                    # If the image is likely to be an known category
+                    if  predict(image_eff, effnetb0_model_2)[:,1] >= BINARY_CLASSIF_THR_2:
 
-                        # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
-                        pred_classes_and_probs_101["unknown"] = pred_probs_101.max() * 1.25
-                        prob_sum = sum(pred_classes_and_probs_101.values())
-                        pred_classes_and_probs = {key: value / prob_sum for key, value in pred_classes_and_probs_101.items()}
-
-                        # Get the top predicted class
-                        top_class = "unknown"
-                    
-                    elif ((top_class_101 == sec_class_102) and (top_class_102 == "unknown")) or (top_class_101 == top_class_102):
+                        # Compare the predictions of the two transformer models                    
+                        if ((top_class_101 == sec_class_102) and (top_class_102 == "unknown")) or (top_class_101 == top_class_102):
                             
-                        # Get the probability vector
-                        pred_classes_and_probs = pred_classes_and_probs_101
+                            # Get the probability vector
+                            pred_classes_and_probs = pred_classes_and_probs_101
 
-                        # Get the top predicted class
-                        top_class = top_class_101
+                            # Get the top predicted class
+                            top_class = top_class_101
 
+                        else:
+
+                            # Get the probability vector
+                            pred_classes_and_probs = pred_classes_and_probs_102
+
+                            # Get the top predicted class
+                            top_class = top_class_102
+
+                    # The food is unknown
                     else:
 
-                        # Get the probability vector
-                        pred_classes_and_probs = pred_classes_and_probs_102
-
+                        # Set all probabilites to zero except class unknown
+                        pred_classes_and_probs = {class_names_101[i]: 0.0 for i in range(num_classes_101)}
+                        pred_classes_and_probs["unknown"] = 1.0
+            
                         # Get the top predicted class
-                        top_class = top_class_102
+                        top_class = "unknown"
 
-                # Otherwise
+                # ViT Lite
                 else:
 
                     # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
-                    pred_probs = torch.softmax(vitbase_model_101(image), dim=1) # 101 classes
+                    pred_probs_101 = predict(image_vit, vitbase_model_101) # 101 classes
 
                     # Calculate entropy
-                    entropy = -torch.sum(pred_probs * torch.log(pred_probs), dim=1).item()
+                    entropy_101 = entropy(pred_probs_101)
 
                     # Create a prediction label and prediction probability dictionary for each prediction class
-                    pred_classes_and_probs = {class_names_101[i]: float(pred_probs[0][i]) for i in range(num_classes_101)}
+                    pred_classes_and_probs = {class_names_101[i]: float(pred_probs_101[0][i]) for i in range(num_classes_101)}
                     pred_classes_and_probs["unknown"] = 0.0
 
                     # Get the top predicted class
                     top_class = max(pred_classes_and_probs, key=pred_classes_and_probs.get)
 
                     # If the image is likely to be an unknown category
-                    if pred_probs[0][class_names_101.index(top_class)] <= MULTICLASS_CLASSIF_THR and entropy > ENTROPY_THR:
+                    if pred_probs_101[0][class_names_101.index(top_class)] <= MULTICLASS_CLASSIF_THR and entropy_101 > ENTROPY_THR:
 
                         # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
-                        pred_classes_and_probs["unknown"] = pred_probs.max() * 1.25
+                        pred_classes_and_probs["unknown"] = pred_probs_101.max() * 1.25
                         prob_sum = sum(pred_classes_and_probs.values())
                         pred_classes_and_probs = {key: value / prob_sum for key, value in pred_classes_and_probs.items()}
 
@@ -275,7 +348,7 @@ with gr.Blocks(theme="ocean") as demo:
 
     # Create the Gradio demo
     gr.Interface(
-        fn=predict,                                                        # mapping function from input to outputs
+        fn=classify_food,                                                  # mapping function from input to outputs
         inputs=[upload_input, model_radio],                                # inputs
         outputs=[gr.Label(num_top_classes=3, label="Prediction"), 
                  gr.Textbox(label="Prediction time:"),

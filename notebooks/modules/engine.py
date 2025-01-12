@@ -2079,7 +2079,7 @@ class Trainer:
                 if output_type == "softmax":
                     y_pred = torch.softmax(y_logit, dim=1)
                 elif output_type == "argmax":
-                    y_pred = torch.argmax(y_logit, dim=1).argmax(dim=1)
+                    y_pred = torch.softmax(y_logit, dim=1).argmax(dim=1)
                 else:
                     y_pred = y_logit
 
