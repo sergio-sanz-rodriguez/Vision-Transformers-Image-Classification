@@ -57,7 +57,7 @@ The new ViT network, referred to as **ViT C** for simplicity, is also a **ViT-Ba
 If both ViT classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output of the ViT C model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the ViT B model, particularly for images that do not belong to any of the supported categories, as this model lacks the "unknown" class.
 
 <div align="center">
-  <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="850"/>
+  <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="750"/>
 </div>
 
 ## 5.Model Performance
