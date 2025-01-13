@@ -172,30 +172,45 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
             # If the picture is food
             if predict(image_eff, effnetb0_model_1)[:,1] >= BINARY_CLASSIF_THR_1:
 
-                image_vit = transforms_vit(image).unsqueeze(0)
-
-                # If ViT Pro
+                # 💎 ViT Pro 💎
                 if model == pro_model:
-
-                    # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
-                    pred_probs_102 = predict(image_vit, vitbase_model_102)
-                    pred_probs_101 = predict(image_vit, vitbase_model_101)
-
-                    # Create a prediction label and prediction probability dictionary for each prediction class
-                    pred_classes_and_probs_102 = {class_names_102[i]: float(pred_probs_102[0][i]) for i in range(num_classes_102)}
-                    pred_classes_and_probs_101 = {class_names_101[i]: float(pred_probs_101[0][i]) for i in range(num_classes_101)}
-                    pred_classes_and_probs_101["unknown"] = 0.0
-
-                    # Get the top predicted class
-                    top_class_102 = max(pred_classes_and_probs_102, key=pred_classes_and_probs_102.get)
-                    sec_class_102 = sorted(pred_classes_and_probs_102.items(), key=lambda x: x[1], reverse=True)[1][0]
-                    top_class_101 = max(pred_classes_and_probs_101, key=pred_classes_and_probs_101.get)                    
 
                     # If the image is likely to be an known category
                     if  predict(image_eff, effnetb0_model_2)[:,1] >= BINARY_CLASSIF_THR_2:
 
+                        # Preproces the image for the ViTs
+                        image_vit = transforms_vit(image).unsqueeze(0)
+
+                        # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
+                        pred_probs_102 = predict(image_vit, vitbase_model_102)
+                        pred_probs_101 = predict(image_vit, vitbase_model_101)
+
+                        # Calculate entropy
+                        entropy_101 = entropy(pred_probs_101)
+
+                        # Create a prediction label and prediction probability dictionary for each prediction class
+                        pred_classes_and_probs_102 = {class_names_102[i]: float(pred_probs_102[0][i]) for i in range(num_classes_102)}
+                        pred_classes_and_probs_101 = {class_names_101[i]: float(pred_probs_101[0][i]) for i in range(num_classes_101)}
+                        pred_classes_and_probs_101["unknown"] = 0.0
+
+                        # Get the top predicted class
+                        top_class_102 = max(pred_classes_and_probs_102, key=pred_classes_and_probs_102.get)
+                        sec_class_102 = sorted(pred_classes_and_probs_102.items(), key=lambda x: x[1], reverse=True)[1][0]
+                        top_class_101 = max(pred_classes_and_probs_101, key=pred_classes_and_probs_101.get)
+
+                        # Check out entropy
+                        if pred_probs_101[0][class_names_101.index(top_class_101)] <= MULTICLASS_CLASSIF_THR and entropy_101 > ENTROPY_THR:
+
+                            # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
+                            pred_classes_and_probs_101["unknown"] = pred_probs_101.max() * 1.25
+                            prob_sum = sum(pred_classes_and_probs_101.values())
+                            pred_classes_and_probs = {key: value / prob_sum for key, value in pred_classes_and_probs_101.items()}
+
+                            # Get the top predicted class
+                            top_class = "unknown"
+                        
                         # Compare the predictions of the two transformer models                    
-                        if ((top_class_101 == sec_class_102) and (top_class_102 == "unknown")) or (top_class_101 == top_class_102):
+                        elif ((top_class_101 == sec_class_102) and (top_class_102 == "unknown")) or (top_class_101 == top_class_102):
                             
                             # Get the probability vector
                             pred_classes_and_probs = pred_classes_and_probs_101
@@ -221,8 +236,11 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
                         # Get the top predicted class
                         top_class = "unknown"
 
-                # ViT Lite
+                # ⚡ ViT Lite ⚡
                 else:
+
+                    # Preproces the image for the ViTs
+                    image_vit = transforms_vit(image).unsqueeze(0)
 
                     # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
                     pred_probs_101 = predict(image_vit, vitbase_model_101) # 101 classes

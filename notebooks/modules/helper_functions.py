@@ -141,7 +141,11 @@ def create_dataloaders_for_vit(
     Creates data loaders for the training and test datasets to be used to traing visiton transformers.
 
     Args:
-        vit_model (str): The name of the ViT model to use. Default is "bitbase16".
+        vit_model (str): The name of the ViT model to use. Default is "bitbase16":
+            -bitbase16: ViT-Base/16-224
+            -bitbase16_2: ViT-Base/16-384
+            -bitlarge16: ViT-Large/16-224
+            -bitlarge32: ViT-Large/32-224
         train_dir (str): The path to the training dataset directory. Default is TRAIN_DIR.
         test_dir (str): The path to the test dataset directory. Default is TEST_DIR.
         batch_size (int): The batch size for the data loaders. Default is BATCH_SIZE.
