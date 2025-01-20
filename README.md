@@ -50,14 +50,14 @@ This model resizes images to **384×384 pixels**, divides them into **16×16 pat
 
 ### 4.2. 💎 ViT Pro 💎
 
-This advanced ViT architecture is more robust against unknown categories. It builds upon the previous EfficientNetB0 and ViT-Base/16-384 algorithms, incorporating an additional classification model and a new ViT network to enhance prediction accuracy. The additional classification model, also based on EfficientNetB0, is designed to differentiate between known and unknown classes.
+This advanced ViT architecture builds upon the EfficientNetB0 and ViT-Base/16-384 algorithms, incorporating an additional classification model and a new ViT network to enhance prediction accuracy. The additional classification model, also based on EfficientNetB0, is designed to differentiate between known and unknown classes.
 
-The new ViT network, referred to as **ViT C** for simplicity, is also a **ViT-Base/16-384** and is trained to recognize the original 101 food types along with an **additional "unknown" category**. This "unknown" class was constructed using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data) dataset, which features 251 food types. The unknown category for both new models includes food images (and some non-food images) that do not belong to any of the predefined classes.
+The new ViT network, referred to as **ViT C** for simplicity, is also a **ViT-Base/16-384** and is trained to recognize the original 101 food types along with an additional "unknown" category. This **"unknown"** class was constructed using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data) dataset, which features 251 food types. The unknown category for both new models includes food images (and some non-food images) that do not belong to any of the predefined classes.
 
-If both ViT classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output of the ViT C model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the ViT B model, particularly for images that do not belong to any of the supported categories, as this model lacks the "unknown" class.
+If both ViT classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
 
 <div align="center">
-  <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="750"/>
+  <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="1000"/>
 </div>
 
 ## 5.Model Performance
@@ -145,31 +145,29 @@ This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
 * [scheduler.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/scheduler.py): A collection of custome learning rate schedulers. Some classes have been taken from [kamrulhasanrony](https://github.com/kamrulhasanrony/Vision-Transformer-based-Food-Classification/tree/master). Many thanks!
 
+<br>
 
-**Food Classifier**
+# 6. Exploring the Power of Transformers in Computer Vision
+I am impressed by the remarkable performance of Vision Transformers (ViT) in computer vision tasks. Recently, I started a project to classify 101 food types using the vanilla ViT-Base/16-224 network. After seeing promising results, I decided push the boundaries and aim to surpass the current performance.
+
+The following table compares different deep learning architectures with a similar number of parameters (~87 million). The models were evaluated based on accuracy, false positive rate at 95% recall, and performance on both CPU and GPU, using a consistent training configuration (learning rate, epochs, batch size). 
+
+| **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance<br>(Core i9-9900K)** | **GPU Performance<br>(RTX 4070)** |
+|----------------------|----------------|-----------------|--------------|---------------------|---------------------|
+| **ConvNeXt-Base**    | CNN            | 87.7 million    | 91.3%        | 7.1 images/sec      | 25.0 images/sec     |
+| **ResNeXt101 32X8D** | CNN            | 87.0 million    | 90.0%        | 6.3 images/sec      | 20.0 images/sec     |
+| **ViT-Base/16-224**  | Transformer    | 85.9 million    | 88.1%        | 8.3 images/sec      | 50.0 images/sec     |
+| **ViT-Base/16-384**  | Transformer    | 86.2 million    | 92.1%        | 3.1 images/sec      | 50.0 images/sec     |
+| **DeiT-Base/16-384** | Transformer    | 86.2 million    | 92.0%        | 3.5 images/sec      | 33.3 images/sec     |
+| **Swin-V2-T-Base**   | Transformer    | 87.0 million    | 92.6%        | 3.3 images/sec      | 5.6 images/sec      |
+
+Key Takeaways:
+- **Swin-V2-T-Base** delivers the highest accuracy (92.6%) with the lowest false positive rate (0.3%), though its performance on GPU and CPU is relatively lower.
+- **ViT-Base/16-384** excels with 50 images/sec on GPU while achieving 92.1% accuracy, making it ideal for high-throughput tasks.
+- **ConvNeXt-Base** provides solid accuracy (91.3%) and balanced performance across CPU and GPU, making it a reliable choice for various use cases.
+
+### Which model should be chosen?
+
+The best choice ultimately depends on the use case. For models of comparable size (~87 million parameters), I would personally choose **ConvNeXt-Base** for CPU-based production workflows, even though it may not deliver the highest accuracy. Accuracy can often be improved through fine-tuning and additional data, but speed remains consistent. For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the best choice.
 
 
-| Model architecture | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | Swin-V2-T-Base | ConvNeXt-Base | DeiT-Base/16-384
-| ----- | ----- | ----- | ----- | ----- | ----- |  ----- | 
-| Input image size | 480x480 pixels | 224x224 pixels | 384x384 pixels | 256x256 pixels | 224x224 pixels | | 384x384 pixels
-| Patch size | - | 16x16 pixels | 16x16 pixels | 4x4 pixels | - | 16x16 pixels |
-| Number of classes | 101 | 101 | 101 | 101 | 101 | 101 |
-| Model size | 461 MB | 327 MB | 328 MB | 332 MB | | 
-| Number of parameters | 117.4 million | 85.9 million | 86.2 million | 87.0 million | 87.7 million | 86.2 million |
-| Training epochs | 10 | 10 | 10 | 20 | 10 | 20 |
-| Learning rate | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 
-| Accuracy | 92.9% | 87.7% | 91.6% | 92.6% | 91.2% | |
-| False positive rate at 95% recall | | | | | | |
-| Performance on CPU (Core i9-9900K) | 1.4 images/sec | 9.1 images/sec | 3.2 images/sec | 3.3 images/sec | |
-| Performance on GPU (RTX 4070) | 3.6 images/sec | 50 images/sec | 50 images/sec | 5.6 images/sec | |
-| Training time (RTX 4070) | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~43 min/epoch | ~8.5 min/epoch | ~17 min/epoch |
-
-
-| Model | Type | Num. Params | Accuracy | False Positive Rate at 95% Recall | Performance on CPU (Core i9-9900K) | Performance on GPU (RTX 4070) |
-| ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| 
-| ViT-Base/16-224 |
-| ViT-Base/16-384 |
-| ConvNext
-
-I am quite impressed about the remarkable performance of Vision Transformers (ViT) in computer vision tasks. I started a project to classify 101 food types using the vanille ViT network (implemented from scratch). After realizing its superior performance of ViT compared to other CNNs, I decided to test and evaluate other transformer architectures: Shifter Window Attention-base Transformer (Swin) and Distilled Data-Efficient Image Transformer (DeiT). My insights are summarized below (also see table):
