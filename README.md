@@ -144,3 +144,32 @@ This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 * [engine.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/engine.py): Contains functions to handle the training, validation, and inference processes of a neural network.
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
 * [scheduler.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/scheduler.py): A collection of custome learning rate schedulers. Some classes have been taken from [kamrulhasanrony](https://github.com/kamrulhasanrony/Vision-Transformer-based-Food-Classification/tree/master). Many thanks!
+
+
+**Food Classifier**
+
+
+| Model architecture | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | Swin-V2-T-Base | ConvNeXt-Base | DeiT-Base/16-384
+| ----- | ----- | ----- | ----- | ----- | ----- |  ----- | 
+| Input image size | 480x480 pixels | 224x224 pixels | 384x384 pixels | 256x256 pixels | 224x224 pixels | | 384x384 pixels
+| Patch size | - | 16x16 pixels | 16x16 pixels | 4x4 pixels | - | 16x16 pixels |
+| Number of classes | 101 | 101 | 101 | 101 | 101 | 101 |
+| Model size | 461 MB | 327 MB | 328 MB | 332 MB | | 
+| Number of parameters | 117.4 million | 85.9 million | 86.2 million | 87.0 million | 87.7 million | 86.2 million |
+| Training epochs | 10 | 10 | 10 | 20 | 10 | 20 |
+| Learning rate | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 
+| Accuracy | 92.9% | 87.7% | 91.6% | 92.6% | 91.2% | |
+| False positive rate at 95% recall | | | | | | |
+| Performance on CPU (Core i9-9900K) | 1.4 images/sec | 9.1 images/sec | 3.2 images/sec | 3.3 images/sec | |
+| Performance on GPU (RTX 4070) | 3.6 images/sec | 50 images/sec | 50 images/sec | 5.6 images/sec | |
+| Training time (RTX 4070) | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~43 min/epoch | ~8.5 min/epoch | ~17 min/epoch |
+
+
+| Model | Type | Num. Params | Accuracy | False Positive Rate at 95% Recall | Performance on CPU (Core i9-9900K) | Performance on GPU (RTX 4070) |
+| ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| 
+| ViT-Base/16-224 |
+| ViT-Base/16-384 |
+| ConvNext
+
+I am quite impressed about the remarkable performance of Vision Transformers (ViT) in computer vision tasks. I started a project to classify 101 food types using the vanille ViT network (implemented from scratch). After realizing its superior performance of ViT compared to other CNNs, I decided to test and evaluate other transformer architectures: Shifter Window Attention-base Transformer (Swin) and Distilled Data-Efficient Image Transformer (DeiT). My insights are summarized below (also see table):
