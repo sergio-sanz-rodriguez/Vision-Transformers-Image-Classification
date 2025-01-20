@@ -161,12 +161,13 @@ The following table compares different deep learning architectures with a simila
 | **DeiT-Base/16-384** | Transformer    | 86.2 million    | 92.0%        | 3.5 images/sec      | 33.3 images/sec     |
 | **Swin-V2-T-Base**   | Transformer    | 87.0 million    | 92.6%        | 3.3 images/sec      | 5.6 images/sec      |
 
-Key Takeaways:
+### Main Insights
+
 - **Swin-V2-T-Base** delivers the highest accuracy (92.6%) with the lowest false positive rate (0.3%), though its performance on GPU and CPU is relatively lower.
 - **ViT-Base/16-384** excels with 50 images/sec on GPU while achieving 92.1% accuracy, making it ideal for high-throughput tasks.
 - **ConvNeXt-Base** provides solid accuracy (91.3%) and balanced performance across CPU and GPU, making it a reliable choice for various use cases.
 
-### Which model should be chosen?
+### Which Model Should Be Chosen?
 
 The best choice ultimately depends on the use case. For models of comparable size (~87 million parameters), I would personally choose **ConvNeXt-Base** for CPU-based production workflows, even though it may not deliver the highest accuracy. Accuracy can often be improved through fine-tuning and additional data, but speed remains consistent.
 
