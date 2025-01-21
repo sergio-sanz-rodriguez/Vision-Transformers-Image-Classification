@@ -154,17 +154,17 @@ The following table compares different deep learning architectures with a simila
 
 | **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance<br>(Core i9-9900K)** | **GPU Performance<br>(RTX 4070)** |
 |----------------------|----------------|-----------------|--------------|---------------------|---------------------|
-| **ConvNeXt-Base**    | CNN            | 87.7 million    | 91.3%        | 7.1 images/sec      | 25.0 images/sec     |
-| **ResNeXt101 32X8D** | CNN            | 87.0 million    | 90.0%        | 6.3 images/sec      | 20.0 images/sec     |
-| **ViT-Base/16-224**  | Transformer    | 85.9 million    | 88.1%        | 8.3 images/sec      | 50.0 images/sec     |
-| **ViT-Base/16-384**  | Transformer    | 86.2 million    | 92.1%        | 3.1 images/sec      | 50.0 images/sec     |
-| **DeiT-Base/16-384** | Transformer    | 86.2 million    | 92.0%        | 3.5 images/sec      | 33.3 images/sec     |
-| **Swin-V2-T-Base**   | Transformer    | 87.0 million    | 92.6%        | 3.3 images/sec      | 5.6 images/sec      |
+| **ConvNeXt-Base**    | CNN            | 87.7 million    | 91.3%        | 7.3 images/sec      | 22.7 images/sec     |
+| **ResNeXt101 32X8D** | CNN            | 87.0 million    | 90.0%        | 6.6 images/sec      | 21.7 images/sec     |
+| **ViT-Base/16-224**  | Transformer    | 85.9 million    | 88.1%        | 8.5 images/sec      | 45.7 images/sec     |
+| **ViT-Base/16-384**  | Transformer    | 86.2 million    | 92.1%        | 3.1 images/sec      | 42.4 images/sec     |
+| **DeiT-Base/16-384** | Transformer    | 86.2 million    | 92.0%        | 3.3 images/sec      | 35.0 images/sec     |
+| **Swin-V2-T-Base**   | Transformer    | 87.0 million    | 92.6%        | 3.3 images/sec      |  5.9 images/sec     |
 
 ### Main Insights
 
 - **Swin-V2-T-Base** delivers the highest accuracy (92.6%) with the lowest false positive rate (0.3%), though its performance on GPU and CPU is relatively lower.
-- **ViT-Base/16-384** excels with 50 images/sec on GPU while achieving 92.1% accuracy, making it ideal for high-throughput tasks.
+- **ViT-Base/16-384** excels with 42.4 images/sec on GPU while achieving 92.1% accuracy, making it ideal for high-throughput tasks.
 - **ConvNeXt-Base** provides solid accuracy (91.3%) and balanced performance across CPU and GPU, making it a reliable choice for various use cases.
 
 ### Which Model Should Be Chosen?
