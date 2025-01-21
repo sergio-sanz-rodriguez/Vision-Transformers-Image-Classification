@@ -152,7 +152,7 @@ I am impressed by the remarkable performance of Vision Transformers (ViT) in com
 
 The following table compares different deep learning architectures with a similar number of parameters (~87 million). The models were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on both CPU and GPU, using a consistent training configuration (learning rate, epochs, batch size). 
 
-| **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance<br>(Core i9-9900K)** | **GPU Performance<br>(RTX 4070)** |
+| **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance<br>( Intel Core i9-9900K)** | **GPU Performance<br>(NVIDIA RTX 4070)** |
 |----------------------|----------------|-----------------|--------------|---------------------|---------------------|
 | **ConvNeXt-Base**    | CNN            | 87.7 million    | 91.3%        | 7.3 images/sec      | 22.7 images/sec     |
 | **ResNeXt101 32X8D** | CNN            | 87.0 million    | 90.0%        | 6.6 images/sec      | 21.7 images/sec     |
