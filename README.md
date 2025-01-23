@@ -128,6 +128,13 @@ The following table compares deep learning architectures **with a similar number
 | **DeiT-Base/16-384** | Transformer    | 86.2 million    | 92.0%        | 3.3 images/sec      | 35.0 images/sec     |
 | **Swin-V2-T-Base**   | Transformer    | 87.0 million    | 92.6%        | 3.3 images/sec      |  5.9 images/sec     |
 
+### Training configuration:
+- Learning rate: 1e-4
+- Epochs: 20
+- Batch size: 64
+- Optimizer: AdamW
+- Scheduler: CosineAnnealingLR (eta_min=1e-6)
+
 ### Main Insights
 
 - **Swin-V2-T-Base** delivers the highest accuracy (92.6%) with the lowest false positive rate (0.3%), though its performance on GPU and CPU is relatively lower.
