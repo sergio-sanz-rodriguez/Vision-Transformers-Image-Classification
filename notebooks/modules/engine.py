@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import copy
 from datetime import datetime
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Union
 from tqdm.auto import tqdm 
 from torch.utils.tensorboard import SummaryWriter
 from IPython.display import clear_output
@@ -23,6 +23,7 @@ from PIL import Image
 from torch import GradScaler, autocast
 from sklearn.metrics import precision_recall_curve, classification_report
 from contextlib import nullcontext
+from sklearn.preprocessing import LabelEncoder
 
 
 def sec_to_min_sec(seconds):
@@ -668,7 +669,15 @@ def train(model: torch.nn.Module,
             results["test_fpr_at_recall"].append(test_fpr_at_recall)
 
         # Scheduler step after the optimizer
-        scheduler.step() if scheduler else None
+        if scheduler:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                # Check whether scheduler is configured for "min" or "max"
+                if scheduler.mode == "min":
+                    scheduler.step(test_loss)  # Minimize test_loss
+                elif scheduler.mode == "max":
+                    scheduler.step(test_accuracy)  # Maximize test_accuracy
+            else:
+                scheduler.step()  # For other schedulers
 
         # Plot loss and accuracy curves
         n_plots = 3 if recall_threshold else 2
@@ -1000,9 +1009,9 @@ class Trainer:
 
     def __init__(
         self,
-        model: torch.nn.Module,
+        model: torch.nn.Module=None,
         save_best_model: bool=False,
-        mode: str="min",
+        mode: Union[str, List[str]] = "loss",  # Allow both string and list
         device: str="cuda" if torch.cuda.is_available() else "cpu"
         ):
         super().__init__()
@@ -1013,23 +1022,47 @@ class Trainer:
         Args:
             model (torch.nn.Module): The PyTorch model to handle. Must be instatiated
             save_best_model (bool): Save the best model based on a criterion mode
-            mode: criterion mode: "min" (validation loss), "max" (validation accuracy), "all" (all epochs to be saved)
+            mode: criterion mode for saving the model: "loss" (validation loss), "acc" (validation accuracy), 
+                "fpr" (fpr at recall), "all" (all epochs to be saved), or a list. e.g. ["loss", "fpr"].
             device (str, optional): Device to use ('cuda' or 'cpu'). If None, it defaults to 'cuda' if available.
         """
 
-        # Check mode
-        valid_mode = {"min", "max", "all"}
-        assert mode in valid_mode, f"Invalid mode value: {mode}. Must be one of {valid_mode}"
+        # Ensure mode is a list
+        if isinstance(mode, str):
+            mode = [mode]
+
+        # Validate mode
+        valid_mode = {"loss", "acc", "fpr", "all"}
+        assert isinstance(mode, list), "[ERROR] mode must be a string or a list of strings."
+        for m in mode:
+            assert m in valid_mode, f"Invalid mode value: {m}. Must be one of {valid_mode}"
 
         # Initialize self variables
         self.device = device
         self.model = model
-        self.model.to(self.device)
         self.save_best_model = save_best_model
         self.mode = mode
         self.model_best = None
         self.model_epoch = None
+        self.optimizer = None
+        self.loss_fn = None
+        self.scheduler = None
+        self.model_name = None
+        self.model_name_loss = None
+        self.model_name_acc = None
+        self.model_name_fpr = None
 
+        # Check if model is provided
+        if self.model is None:
+            warnings.warn(
+                "[WARNING] No model has been introduced. Only limited functionalities "
+                "will be allowed: 'sec_to_min_sec', 'calculate_accuracy', "
+                "'calculate_fpr_at_recall', 'load', and 'create_writer'."
+                "You can later on load the model with 'load'."
+            )
+        else:
+            self.model.to(self.device)
+     
         # Create empty results dictionary
         self.results = {
             "epoch": [],
@@ -1148,9 +1181,9 @@ class Trainer:
             either ".pth" or ".pt" as the file extension.
 
         Example usage:
-            save_model(model=model_0,
-                    target_dir="models",
-                    model_name="05_going_modular_tingvgg_model.pth")
+            save(model=model_0,
+                target_dir="models",
+                model_name="05_going_modular_tingvgg_model.pth")
         """
 
         # Create target directory
@@ -1166,27 +1199,21 @@ class Trainer:
         print(f"[INFO] Saving model to: {model_save_path}")
         torch.save(obj=model.state_dict(), f=model_save_path)
 
-    @staticmethod
     def load(
-        model: torch.nn.Module,
+        self,
         target_dir: str,
-        model_name: str):
+        model_name: str,
+        return_model: bool=False):
         
-        """Loads a PyTorch model from a target directory.
+        """Loads a PyTorch model from a target directory and optionally returns it.
 
         Args:
-            model: A target PyTorch model to load.
             target_dir: A directory where the model is located.
-            model_name: The name of the model to load.
-            Should include either ".pth" or ".pt" as the file extension.
-
-        Example usage:
-            model = load_model(model=model,
-                            target_dir="models",
-                            model_name="model.pth")
+            model_name: The name of the model to load. Should include ".pth" or ".pt" as the file extension.
+            return_model: Whether to return the loaded model (default: False).
 
         Returns:
-        The loaded PyTorch model.
+            The loaded PyTorch model (if return_model=True).
         """
 
         # Create the model directory path
@@ -1199,9 +1226,10 @@ class Trainer:
         # Load the model
         print(f"[INFO] Loading model from: {model_path}")
         
-        model.load_state_dict(torch.load(model_path, weights_only=True))
+        self.model.load_state_dict(torch.load(model_path, weights_only=True, map_location=self.device))
         
-        return model
+        if return_model:
+            return self.model
     
     @staticmethod
     def create_writer(
@@ -1243,12 +1271,136 @@ class Trainer:
             
         print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
         return SummaryWriter(log_dir=log_dir)
+    
+    def print_config(
+            self,
+            batch_size,
+            recall_threshold,
+            epochs,
+            plot_curves,
+            amp,
+            enable_clipping,
+            accumulation_steps,
+            writer):
+        
+        """
+        Prints the configuration of the training process.
+        """
 
+        print(f"[INFO] Device: {self.device}")
+        print(f"[INFO] Epochs: {epochs}")
+        print(f"[INFO] Batch size: {batch_size}")
+        print(f"[INFO] Accumulation steps: {accumulation_steps}")
+        print(f"[INFO] Effective batch size: {batch_size * accumulation_steps}")
+        print(f"[INFO] Recall threshold: {recall_threshold}")
+        print(f"[INFO] Plot curvers: {plot_curves}")
+        print(f"[INFO] Automatic Mixed Precision (AMP): {amp}")
+        print(f"[INFO] Enable clipping: {enable_clipping}")
+        print(f"[INFO] Enable writer: {writer}")
+        print("")
+
+    def init_train(
+        self,
+        target_dir: str=None,
+        model_name: str=None,
+        optimizer: torch.optim.Optimizer=None,
+        loss_fn: torch.nn.Module=None,
+        scheduler: torch.optim.lr_scheduler=None,
+        batch_size: int=64,
+        recall_threshold: float=0.95,
+        epochs: int=30, 
+        plot_curves: bool=True,
+        amp: bool=True,
+        enable_clipping: bool=True,
+        accumulation_steps: int=1,
+        writer: SummaryWriter=False,
+    ):
+
+        """
+        Initializes the training process by setting up the required configurations, parameters, and resources.
+
+        Parameters:
+        - target_dir (str, optional): Directory to save the models. Defaults to "models" if not provided.
+        - model_name (str, optional): Name of the model file to save. Defaults to the class name of the model with ".pth" extension.
+        - optimizer (torch.optim.Optimizer, optional): The optimizer to minimize the loss function.
+        - loss_fn (torch.nn.Module, optional): The loss function to minimize during training.
+        - scheduler (torch.optim.lr_scheduler, optional): Learning rate scheduler for the optimizer.
+        - batch_size (int, optional): Batch size for the training process. Default is 64.
+        - recall_threshold (float, optional): Recall threshold for evaluation. Must be a float between 0.0 and 1.0. Default is 0.95.
+        - epochs (int, optional): Number of epochs to train. Must be an integer greater than or equal to 1. Default is 30.
+        - plot_curves (bool, optional): Whether to plot training and validation curves. Default is True.
+        - amp (bool, optional): Enable automatic mixed precision for faster training. Default is True.
+        - enable_clipping (bool, optional): Whether to enable gradient clipping. Default is True.
+        - accumulation_steps (int, optional): Steps for gradient accumulation. Must be an integer greater than or equal to 1. Default is 1.
+        - writer (SummaryWriter, optional): TensorBoard SummaryWriter for logging metrics. Default is False.
+
+        Functionality:
+        - Validates `recall_threshold`, `accumulation_steps`, and `epochs` parameters with assertions.
+        - Prints configuration parameters using the `print_config` method.
+        - Initializes the optimizer, loss function, and scheduler.
+        - Ensures the target directory for saving models exists, creating it if necessary.
+        - Sets the model name for saving, defaulting to the model's class name if not provided.
+        - Initializes structures to track the best-performing model and epoch-specific models:
+            - If `self.save_best_model` is enabled and `self.mode` is not "all":
+                - Initializes `self.model_best` for saving the best model during training.
+                - Sets default values for tracking the best test loss, accuracy, and FPR at recall.
+            - If `self.mode` is "all", initializes a list of models (`self.model_epoch`) for saving models at every epoch.
+
+        This method sets up the environment for training, ensuring all necessary resources and parameters are prepared.
+        """
+
+        # Check out recall_threshold
+        assert isinstance(recall_threshold, float) and 0.0 <= recall_threshold <= 1.0, "recall_threshold must be a float between 0.0 and 1.0"
+        
+        # Check out accumulation_steps
+        assert isinstance(accumulation_steps, int) and accumulation_steps >= 1, "accumulation_steps must be an integer greater than or equal to 1"
+
+        # Check out epochs
+        assert isinstance(epochs, int) and epochs >= 1, "epochs must be an integer greater than or equal to 1"
+
+        # Print configuration parameters
+        self.print_config(
+            batch_size=batch_size,
+            recall_threshold=recall_threshold,
+            epochs=epochs,
+            plot_curves=plot_curves,
+            amp=amp,
+            enable_clipping=enable_clipping,
+            accumulation_steps=accumulation_steps,
+            writer=writer
+            )
+        
+        # Initialize optimizer, loss_fn, and scheduler
+        self.optimizer = optimizer
+        self.loss_fn = loss_fn
+        self.scheduler = scheduler
+    
+        # Initialize model name path and ensure target directory exists
+        self.target_dir = target_dir if target_dir is not None else "models"
+        os.makedirs(self.target_dir, exist_ok=True)  
+        self.model_name = model_name if model_name is not None else f"{self.model.__class__.__name__}.pth"
+
+        # Initialize the best model and model_epoch list based on the specified mode.
+        if self.save_best_model:
+            if self.mode != "all":
+                self.model_best = copy.deepcopy(self.model)                            
+                self.model_best.to(self.device)
+                self.model_name_loss = self.model_name.replace(".", f"_loss.")
+                self.model_name_acc = self.model_name.replace(".", f"_acc.")
+                self.model_name_fpr = self.model_name.replace(".", f"_fpr.")
+                self.best_test_loss = float("inf") 
+                self.best_test_acc = 0.0
+                self.best_test_fpr_at_recall = float("inf")
+            else:
+                self.model_epoch = []
+                for k in range(epochs):
+                    self.model_epoch.append(copy.deepcopy(self.model))
+                    self.model_epoch[k].to(self.device)
+
+    
     def train_step(
         self,
         dataloader: torch.utils.data.DataLoader, 
-        loss_fn: torch.nn.Module, 
-        optimizer: torch.optim.Optimizer,
         recall_threshold: float=0.95,
         amp: bool=True,
         enable_clipping=True,
@@ -1263,8 +1415,6 @@ class Trainer:
 
         Args:
             dataloader: A DataLoader instance for the model to be trained on.
-            loss_fn: A PyTorch loss function to minimize.
-            optimizer: A PyTorch optimizer to help minimize the loss function.
             recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1).
             amp: Whether to use mixed precision training (True) or not (False).
             enable_clipping: enables clipping on gradients and model outputs.
@@ -1317,7 +1467,7 @@ class Trainer:
                             continue
 
                     # Calculate  and accumulate loss
-                    loss = loss_fn(y_pred, y)
+                    loss = self.loss_fn(y_pred, y)
                 
                     # Check for NaN or Inf in loss
                     if torch.isnan(loss) or torch.isinf(loss):
@@ -1334,7 +1484,7 @@ class Trainer:
 
                 # Gradient clipping
                 if enable_clipping:
-                    scaler.unscale_(optimizer)
+                    scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
                 # Check gradients for NaN or Inf values
@@ -1348,11 +1498,11 @@ class Trainer:
                 # scaler.step() first unscales the gradients of the optimizer's assigned parameters.
                 # If these gradients do not contain ``inf``s or ``NaN``s, optimizer.step() is then called,
                 # otherwise, optimizer.step() is skipped.
-                scaler.step(optimizer)
+                scaler.step(self.optimizer)
                 scaler.update()
 
                 # Optimizer zero grad
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
 
             else:
                 # Forward pass
@@ -1360,10 +1510,10 @@ class Trainer:
                 y_pred = y_pred.contiguous()
                 
                 # Calculate  and accumulate loss
-                loss = loss_fn(y_pred, y)
+                loss = self.loss_fn(y_pred, y)
 
                 # Optimizer zero grad
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
 
                 # Loss backward
                 loss.backward()
@@ -1373,7 +1523,7 @@ class Trainer:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
                 # Optimizer step
-                optimizer.step()
+                self.optimizer.step()
 
             # Calculate and accumulate loss and accuracy across all batches
             train_loss += loss.item()
@@ -1404,8 +1554,6 @@ class Trainer:
     def train_step_v2(
         self,
         dataloader: torch.utils.data.DataLoader, 
-        loss_fn: torch.nn.Module, 
-        optimizer: torch.optim.Optimizer,
         recall_threshold: float=0.95,
         amp: bool=True,
         enable_clipping=False,
@@ -1417,8 +1565,6 @@ class Trainer:
 
         Args:
             dataloader: A DataLoader instance for the model to be trained on.
-            loss_fn: A PyTorch loss function to minimize.
-            optimizer: A PyTorch optimizer to help minimize the loss function.
             recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1)
             amp: Whether to use mixed precision training (True) or not (False).
             enable_clipping: enables clipping on gradients and model outputs.
@@ -1444,7 +1590,7 @@ class Trainer:
         all_labels = []
 
         # Loop through data loader data batches
-        optimizer.zero_grad()  # Clear gradients before starting
+        self.optimizer.zero_grad()  # Clear gradients before starting
         for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)):
             
             # Send data to target device
@@ -1473,7 +1619,7 @@ class Trainer:
                             continue
                     
                     # Calculate loss, normalize by accumulation steps
-                    loss = loss_fn(y_pred, y) / accumulation_steps
+                    loss = self.loss_fn(y_pred, y) / accumulation_steps
                 
                     # Check for NaN or Inf in loss
                     if debug_mode and (torch.isnan(loss) or torch.isinf(loss)):
@@ -1494,7 +1640,7 @@ class Trainer:
                 y_pred = y_pred.contiguous()
                 
                 # Calculate loss, normalize by accumulation steps
-                loss = loss_fn(y_pred, y) / accumulation_steps
+                loss = self.loss_fn(y_pred, y) / accumulation_steps
 
                 # Backward pass
                 loss.backward()
@@ -1511,7 +1657,7 @@ class Trainer:
                     # Gradient cliping
                     if enable_clipping:
                         # Unscale the gradients before performing any operations on them
-                        scaler.unscale_(optimizer)
+                        scaler.unscale_(self.optimizer)
                         # Apply clipping if needed
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                     
@@ -1526,15 +1672,15 @@ class Trainer:
                     # scaler.step() first unscales the gradients of the optimizer's assigned parameters.
                     # If these gradients do not contain ``inf``s or ``NaN``s, optimizer.step() is then called,
                     # otherwise, optimizer.step() is skipped.
-                    scaler.step(optimizer)
+                    scaler.step(self.optimizer)
                     scaler.update()
 
                 else:
                     # Optimizer step
-                    optimizer.step()
+                    self.optimizer.step()
 
                 # Optimizer zero grad
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
 
             # Accumulate metrics
             train_loss += loss.item() * accumulation_steps  # Scale back to original loss
@@ -1563,7 +1709,6 @@ class Trainer:
     def test_step(
         self,
         dataloader: torch.utils.data.DataLoader, 
-        loss_fn: torch.nn.Module,
         recall_threshold: float = 0.95,
         amp: bool = True,
         debug_mode: bool = False,
@@ -1574,7 +1719,6 @@ class Trainer:
 
         Args:
             dataloader: A DataLoader instance for the model to be tested on.
-            loss_fn: A PyTorch loss function to calculate loss on the test data.
             recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1).
             amp: Whether to use Automatic Mixed Precision for inference.
             debug_mode: Enables logging for debugging purposes.
@@ -1621,7 +1765,7 @@ class Trainer:
                             continue
 
                     # Calculate and accumulate loss
-                    loss = loss_fn(test_pred, y)
+                    loss = self.loss_fn(test_pred, y)
                     test_loss += loss.item()
 
                     # Debug NaN/Inf loss
@@ -1651,34 +1795,9 @@ class Trainer:
             fpr_at_recall = None
 
         return test_loss, test_acc, fpr_at_recall
-    
-    def print_config(
-            self,
-            dataloader,
-            recall_threshold,
-            epochs,
-            plot_curves,
-            amp,
-            enable_clipping,
-            accumulation_steps,
-            writer):
-        
-        """
-        Prints the configuration of the training process.
-        """
 
-        print(f"[INFO] Device: {self.device}")
-        print(f"[INFO] Epochs: {epochs}")
-        print(f"[INFO] Batch size: {dataloader.batch_size}")
-        print(f"[INFO] Accumulation steps: {accumulation_steps}")
-        print(f"[INFO] Recall threshold: {recall_threshold}")
-        print(f"[INFO] Plot curvers: {plot_curves}")
-        print(f"[INFO] Automatic Mixed Precision (AMP): {amp}")
-        print(f"[INFO] Enable clipping: {enable_clipping}")
-        print(f"[INFO] Enable writer: {writer}")
-        print("")
     
-    def update_results(
+    def display_results(
             self,
             epoch,
             train_loss,
@@ -1690,9 +1809,20 @@ class Trainer:
             test_acc,
             test_fpr_at_recall,
             test_epoch_time,
-            lr,
+            plot_curves,
             writer
             ):
+        
+        """
+        Displays the training and validation results both numerically and visually.
+
+        Functionality:
+        - Outputs key metrics such as training and validation loss, accuracy, and fpr at recall in numerical form.
+        - Generates plots that visualize the training process, such as:
+        - Loss curves (training vs validation loss over epochs).
+        - Accuracy curves (training vs validation accuracy over epochs).
+        - FPR at recall curves
+        """
 
         # Define colors
         BLACK = '\033[30m'  # Black
@@ -1701,6 +1831,13 @@ class Trainer:
         GREEN = '\033[32m'  # Green
         RESET = '\033[39m'  # Reset to default color
 
+        # Retrieve the learning rate
+        if self.scheduler is None or isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            lr = self.optimizer.param_groups[0]['lr']
+        else:
+            lr = self.scheduler.get_last_lr()[0]
+
+        # Print results
         print(
             f"{BLACK}Epoch: {epoch+1} | "
             f"{BLUE}train_loss: {train_loss:.4f} {BLACK}| "
@@ -1746,50 +1883,182 @@ class Trainer:
                 global_step=epoch)
         else:
             pass
+
+        # Plots training and test loss, accuracy, and fpr-at-recall curves.
+        if plot_curves:
         
+            n_plots = 3
+            plt.figure(figsize=(20, 6))
+            range_epochs = range(1, len(self.results["train_loss"])+1)
+
+            # Plot loss
+            plt.subplot(1, n_plots, 1)
+            plt.plot(range_epochs, self.results["train_loss"], label="train_loss")
+            plt.plot(range_epochs, self.results["test_loss"], label="test_loss")
+            plt.title("Loss")
+            plt.xlabel("Epochs")
+            plt.grid(visible=True, which="both", axis="both")
+            plt.legend()
+
+            # Plot accuracy
+            plt.subplot(1, n_plots, 2)
+            plt.plot(range_epochs, self.results["train_acc"], label="train_accuracy")
+            plt.plot(range_epochs, self.results["test_acc"], label="test_accuracy")
+            plt.title("Accuracy")
+            plt.xlabel("Epochs")
+            plt.grid(visible=True, which="both", axis="both")
+            plt.legend()
+                    
+            # Plot FPR at recall
+            plt.subplot(1, n_plots, 3)
+            plt.plot(range_epochs, self.results["train_fpr_at_recall"], label="train_fpr_at_recall")
+            plt.plot(range_epochs, self.results["test_fpr_at_recall"], label="test_fpr_at_recall")
+            plt.title(f"FPR at {recall_threshold * 100}% recall")
+            plt.xlabel("Epochs")
+            plt.grid(visible=True, which="both", axis="both")
+            plt.legend()
+                    
+            plt.show()
+
+    # Scheduler step after the optimizer
+    def scheduler_step(
+        self,
+        test_loss: float=None,
+        test_acc: float=None,
+        ):
+
+        """
+        Performs a scheduler step after the optimizer step.
+
+        Parameters:
+        - scheduler (torch.optim.lr_scheduler): The learning rate scheduler.
+        - test_loss (float, optional): Test loss value, required for ReduceLROnPlateau with 'min' mode.
+        - test_acc (float, optional): Test accuracy value, required for ReduceLROnPlateau with 'max' mode.
+        """
+            
+        if self.scheduler:
+            if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                # Check whether scheduler is configured for "min" or "max"
+                if self.scheduler.mode == "min" and test_loss is not None:
+                    self.scheduler.step(test_loss)  # Minimize test_loss
+                elif self.scheduler.mode == "max" and test_acc is not None:
+                    self.scheduler.step(test_acc)  # Maximize test_accuracy
+                else:
+                    raise ValueError(
+                        "The scheduler requires either `test_loss` or `test_acc` "
+                        "depending on its mode ('min' or 'max')."
+                        )
+            else:
+                self.scheduler.step()  # For other schedulers
     
-    def plot_curves(
-            self,
-            recall_threshold):
+    # Update the best model and model_epoch list based on the specified mode.
+    def update_best_model(
+        self,
+        test_loss: float=None,
+        test_acc: float=None,
+        test_fpr_at_recall: float=None,
+        epoch: int=None,
+    ):
+
+        """
+        Updates the best model and model_epoch list based on the specified mode.
+
+        Parameters:
+        - test_loss (float, optional): The test loss for the current epoch. Used if the evaluation mode is "loss".
+        - test_acc (float, optional): The test accuracy for the current epoch. Used if the evaluation mode is "acc".
+        - test_fpr_at_recall (float, optional): The test false positive rate at the specified recall for the current epoch. 
+                                                Used if the evaluation mode is "fpr".
+        - epoch (int, optional): The current epoch index. Used for naming models when saving all epoch versions in "all" mode.
+
+        Functionality:
+        - Saves the best-performing model during training based on the specified evaluation mode:
+            - "loss": Updates and saves the model if the test loss decreases.
+            - "acc": Updates and saves the model if the test accuracy increases.
+            - "fpr": Updates and saves the model if the test false positive rate at recall decreases.
+        - If the mode is "all", saves the model for every epoch using a unique name that includes the epoch index.
+        - The evaluation mode can be a list with some of these metrics, e.g. ["loss", "fpr"]
+        - Updates `self.model_best` with the best model's state dictionary if a better model is found.
+        - Updates the `self.model_epoch` list for all saved models in "all" mode.
+
+        This function ensures that the best model is saved for recovery and evaluation and that all models 
+        are saved during training when required.
+        """
+
+        if self.save_best_model:
+            for mode in self.mode:
+                if mode == "loss":
+                    if test_loss is None:
+                        raise ValueError("[ERROR] test_loss must be provided when mode is 'loss'.")
+                    if test_loss < self.best_test_loss:
+                        self.best_test_loss = test_loss
+                        self.save(
+                            model=self.model,
+                            target_dir=self.target_dir,
+                            model_name=self.model_name_loss)
+                elif mode == "acc":
+                    if test_acc is None:
+                        raise ValueError("[ERROR] test_acc must be provided when mode is 'acc'.")
+                    if test_acc > self.best_test_acc:
+                        self.best_test_acc = test_acc
+                        self.save(
+                            model=self.model,
+                            target_dir=self.target_dir,
+                            model_name=self.model_name_acc)
+                elif mode == "fpr":
+                    if test_fpr_at_recall is None:
+                        raise ValueError("[ERROR] test_fpr_at_recall must be provided when mode is 'fpr'.")
+                    if test_fpr_at_recall < self.best_test_fpr_at_recall:
+                        self.best_test_fpr_at_recall = test_fpr_at_recall
+                        self.save(
+                            model=self.model,
+                            target_dir=self.target_dir,
+                            model_name=self.model_name_fpr)
+                elif mode == "all":
+                    if epoch is None:
+                        raise ValueError("[ERROR] epoch must be provided when mode is 'all'.")
+                    self.save(
+                        model=self.model,
+                        target_dir=self.target_dir,
+                        model_name=self.model_name.replace(".", f"_epoch{epoch+1}."))
+                    self.model_epoch[epoch].load_state_dict(self.model.state_dict())
+    
+    def finish_train(
+        self,
+        writer: SummaryWriter=False
+        ) -> pd.DataFrame:
+
+        """
+        Finalizes the training process by closing writer, saving the last model,
+        and creating a dataframe with the training logs
         
+        Args:
+            writer: A SummaryWriter() instance to log model results to.
+
+        Returns:
+            A dataframe of training and testing loss, training and testing accuracy metrics,
+            and training testing fpr. Each metric has a value in a list for 
+            each epoch.
         """
-        Plots training and test loss, accuracy, and fpr-at-recall curves.
-        """
 
-        n_plots = 3
-        plt.figure(figsize=(20, 6))
-        range_epochs = range(1, len(self.results["train_loss"])+1)
+        # Close the writer
+        writer.close() if writer else None
 
-        # Plot loss
-        plt.subplot(1, n_plots, 1)
-        plt.plot(range_epochs, self.results["train_loss"], label="train_loss")
-        plt.plot(range_epochs, self.results["test_loss"], label="test_loss")
-        plt.title("Loss")
-        plt.xlabel("Epochs")
-        plt.grid(visible=True, which="both", axis="both")
-        plt.legend()
+        # Save the model (last epoch)
+        self.save(
+            model=self.model,
+            target_dir=self.target_dir,
+            model_name=self.model_name)
 
-        # Plot accuracy
-        plt.subplot(1, n_plots, 2)
-        plt.plot(range_epochs, self.results["train_acc"], label="train_accuracy")
-        plt.plot(range_epochs, self.results["test_acc"], label="test_accuracy")
-        plt.title("Accuracy")
-        plt.xlabel("Epochs")
-        plt.grid(visible=True, which="both", axis="both")
-        plt.legend()
-                
-        # Plot FPR at recall
-        plt.subplot(1, n_plots, 3)
-        plt.plot(range_epochs, self.results["train_fpr_at_recall"], label="train_fpr_at_recall")
-        plt.plot(range_epochs, self.results["test_fpr_at_recall"], label="test_fpr_at_recall")
-        plt.title(f"FPR at {recall_threshold * 100}% recall")
-        plt.xlabel("Epochs")
-        plt.grid(visible=True, which="both", axis="both")
-        plt.legend()
-                
-        plt.show()
+        # Return and save the filled results at the end of the epochs
+        name , _ = self.model_name.rsplit('.', 1)
+        csv_file_name = f"{name}.csv"
+        df_results = pd.DataFrame(self.results)
+        df_results.to_csv(os.path.join(self.target_dir, csv_file_name), index=False)
 
+        return df_results
 
+            
+    # Trains and tests a Pytorch model
     def fit(
         self,
         target_dir: str,
@@ -1838,8 +2107,8 @@ class Trainer:
             writer: A SummaryWriter() instance to log model results to.
 
         Returns:
-            A dataframe of training and testing loss as well as training and
-            testing accuracy metrics. Each metric has a value in a list for 
+            A dataframe of training and testing loss, training and testing accuracy metrics,
+            and training testing fpr at recall. Each metric has a value in a list for 
             each epoch.
             In the form: {
                 epoch: [...],
@@ -1868,40 +2137,21 @@ class Trainer:
                 } 
         """
 
-        # Check out recall_threshold
-        assert isinstance(recall_threshold, float) and 0.0 <= recall_threshold <= 1.0, "recall_threshold must be a float between 0.0 and 1.0"
-        
-        # Check out accumulation_steps
-        assert isinstance(accumulation_steps, int) and accumulation_steps >= 1, "accumulation_steps must be an integer greater than or equal to 1"
-
-        # Check out epochs
-        assert isinstance(epochs, int) and epochs >= 1, "epochs must be an integer greater than or equal to 1"
-
-        # Print configuration parameters
-        self.print_config(
-            dataloader=train_dataloader,
+        # Initialize training process
+        self.init_train(
+            target_dir=target_dir,
+            model_name=model_name,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            scheduler=scheduler,
+            batch_size=train_dataloader.batch_size,
             recall_threshold=recall_threshold,
-            epochs=epochs,
+            epochs=epochs, 
             plot_curves=plot_curves,
             amp=amp,
             enable_clipping=enable_clipping,
-            accumulation_steps=accumulation_steps,
-            writer=writer
+            accumulation_steps=accumulation_steps
             )
-        
-        # Initialize the best model and model_epoch list based on the specified mode.
-        if self.save_best_model:
-            if (self.mode == "min") or (self.mode == "max"):
-                self.model_best = copy.deepcopy(self.model)                            
-                self.model_best.to(self.device)
-                model_name_best = model_name.replace(".", f"_best.")            
-                best_test_loss = float("inf") 
-                best_test_acc = 0.0
-            else:
-                self.model_epoch = []
-                for k in range(epochs):
-                    self.model_epoch.append(copy.deepcopy(self.model))
-                    self.model_epoch[k].to(self.device)
 
         # Loop through training and testing steps for a number of epochs
         for epoch in range(epochs):
@@ -1912,8 +2162,6 @@ class Trainer:
             if accumulation_steps > 1:
                 train_loss, train_acc, train_fpr_at_recall = self.train_step_v2(
                     dataloader=train_dataloader,
-                    loss_fn=loss_fn,
-                    optimizer=optimizer,
                     recall_threshold=recall_threshold,
                     amp=amp,
                     enable_clipping=enable_clipping,
@@ -1923,8 +2171,6 @@ class Trainer:
             else:
                 train_loss, train_acc, train_fpr_at_recall = self.train_step(
                     dataloader=train_dataloader,
-                    loss_fn=loss_fn,
-                    optimizer=optimizer,
                     recall_threshold=recall_threshold,
                     amp=amp,
                     enable_clipping=enable_clipping,
@@ -1938,7 +2184,6 @@ class Trainer:
             test_epoch_start_time = time.time()
             test_loss, test_acc, test_fpr_at_recall = self.test_step(
                 dataloader=test_dataloader,
-                loss_fn=loss_fn,
                 recall_threshold=recall_threshold,
                 amp=amp,
                 enable_clipping=enable_clipping,
@@ -1949,8 +2194,8 @@ class Trainer:
 
             clear_output(wait=True)
 
-            # Print results
-            self.update_results(
+            # Show results
+            self.display_results(
                 epoch=epoch,
                 train_loss=train_loss,
                 train_acc=train_acc,
@@ -1961,66 +2206,36 @@ class Trainer:
                 test_acc=test_acc,
                 test_fpr_at_recall=test_fpr_at_recall,
                 test_epoch_time=test_epoch_time,
-                lr=scheduler.get_last_lr()[0] if scheduler else optimizer.param_groups[0]['lr'],
+                plot_curves=plot_curves,
                 writer=writer
             )
 
             # Scheduler step after the optimizer
-            if scheduler:
-                scheduler.step()
-
-            # Plot loss and accuracy curves
-            if plot_curves:
-                self.plot_curves(recall_threshold=recall_threshold)
+            self.scheduler_step(
+                test_loss=test_loss,
+                test_acc=test_acc
+            )
 
             # Update the tqdm progress bar description with the current epoch
             #epoch_bar.set_description(f"Epoch {epoch+1}/{epochs}")
             #epoch_bar.update(1)
-            
+
             # Update the best model and model_epoch list based on the specified mode.
-            if self.save_best_model:                
-                if (self.mode == "min") and (test_loss < best_test_loss):
-                    best_test_loss = test_loss
-                    self.save(
-                        model=self.model,
-                        target_dir=target_dir,
-                        model_name=model_name_best)
-                    self.model_best.load_state_dict(self.model.state_dict())
-                elif (self.mode == "max") and (test_acc > best_test_acc):
-                    best_test_acc = test_acc
-                    self.save(
-                        model=self.model,
-                        target_dir=target_dir,
-                        model_name=model_name_best)
-                    self.model_best.load_state_dict(self.model.state_dict())
-                elif self.mode == "all":
-                    self.save(
-                        model=self.model,
-                        target_dir=target_dir,
-                        model_name=model_name.replace(".", f"_epoch{epoch+1}."))
-                    self.model_epoch[k].load_state_dict(self.model.state_dict())
+            self.update_best_model(
+                test_loss=test_loss,
+                test_acc=test_acc,
+                test_fpr_at_recall=test_fpr_at_recall,
+                epoch=epoch
+                )
 
-        # Close the writer
-        writer.close() if writer else None
-
-        # Save the model (last epoch)
-        self.save(
-            model=self.model,
-            target_dir=target_dir,
-            model_name=model_name)
-
-        # Return and save the filled results at the end of the epochs
-        name , _ = model_name.rsplit('.', 1)
-        csv_file_name = f"{name}.csv"
-        df_results = pd.DataFrame(self.results)
-        df_results.to_csv(os.path.join(target_dir, csv_file_name), index=False)
+        df_results = self.finish_train(writer)
 
         return df_results
 
     def predict(
         self,
         dataloader: torch.utils.data.DataLoader,
-        model_state: str="last",
+        model_state: str="default",
         output_type: str="softmax",        
         ) -> torch.Tensor:
 
@@ -2028,7 +2243,7 @@ class Trainer:
         Predicts classes for a given dataset using a trained model.
 
         Args:
-            model_state: specifies the model to use for making predictions
+            model_state: specifies the model to use for making predictions. Default: "default", the last stored model.
             dataloader (torch.utils.data.DataLoader): The dataset to predict on.
             output_type (str): The type of output to return. Either "softmax", "logits", or "argmax".            
 
@@ -2037,24 +2252,24 @@ class Trainer:
         """
  
         # Check model to use
-        valid_models = {"last", "best"}
+        valid_models = {"default", "best"}
         assert model_state in valid_models or isinstance(model_state, int), f"Invalid model value: {model_state}. Must be one of {valid_models} or an integer."
 
-        if model_state == "last":
+        if model_state == "default":
             model = self.model
         elif model_state == "best":
             if self.model_best is None:
-                print(f"[INFO] Model best not found, using last model for prediction.")
+                print(f"[INFO] Model best not found, using default model for prediction.")
                 model = self.model
             else:
                 model = self.model_best
         elif isinstance(model_state, int):
             if self.model_epoch is None:
-                print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                print(f"[INFO] Model epoch {model_state} not found, using default model for prediction.")
                 model = self.model
             else:
                 if model_state > len(self.model_epoch):
-                    print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                    print(f"[INFO] Model epoch {model_state} not found, using default model for prediction.")
                     model = self.model
                 else:
                     model = self.model_epoch[model_state-1]            
@@ -2094,7 +2309,7 @@ class Trainer:
         test_dir: str, 
         transform: torchvision.transforms, 
         class_names: List[str], 
-        model_state: str="last",
+        model_state: str="default",
         percent_samples: float=1.0,
         seed=42,        
         ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -2116,25 +2331,24 @@ class Trainer:
         """
 
         # Check model to use
-        valid_models = {"last", "best"}
+        valid_models = {"default", "best"}
         assert model_state in valid_models or isinstance(model_state, int), f"Invalid model value: {model_state}. Must be one of {valid_models} or an integer."
 
-
-        if model_state == "last":
+        if model_state == "default":
             model = self.model
         elif model_state == "best":
             if self.model_best is None:
-                print(f"[INFO] Model best not found, using last model for prediction.")
+                print(f"[INFO] Model best not found, using default model for prediction.")
                 model = self.model
             else:
                 model = self.model_best
         elif isinstance(model_state, int):
             if self.model_epoch is None:
-                print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                print(f"[INFO] Model epoch {model_state} not found, using default model for prediction.")
                 model = self.model
             else:
                 if model_state > len(self.model_epoch):
-                    print(f"[INFO] Model epoch {model_state} not found, using last model for prediction.")
+                    print(f"[INFO] Model epoch {model_state} not found, using default model for prediction.")
                     model = self.model
                 else:
                     model = self.model_epoch[model_state-1]
@@ -2212,11 +2426,17 @@ class Trainer:
             y_true.append(class_names.index(class_name))
             y_pred.append(pred_label.cpu().item())
 
+        # Ensure the labels match the class indices
+        label_encoder = LabelEncoder()
+        label_encoder.fit(class_names)
+        labels = label_encoder.transform(class_names)
+
         # Generate the classification report
         classification_report_dict = classification_report(
             y_true=y_true,
             y_pred=y_pred,
             target_names=class_names,
+            labels=labels,
             output_dict=True
             )
 
