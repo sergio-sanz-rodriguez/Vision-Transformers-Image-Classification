@@ -117,7 +117,7 @@ This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 # 5. Comparing Vision Transformers and CNNs for Food Classification
 I am impressed by the remarkable performance of Vision Transformers (ViT) in computer vision tasks. Recently, I started a project to classify 101 food types using the vanilla ViT-Base/16-224 network. After seeing promising results, I decided push the boundaries and aim to surpass the current performance.
 
-The following table compares deep learning architectures **with a similar number of parameters*** (86-88 million). The models include Transformers and Convolutional Neural Networks (CNNs) and were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on an Intel Core i9-9900K CPU and NVIDIA RTX 4070 GPU, using a consistent training configuration (learning rate, epochs, batch size, optimizer). 
+The following table compares deep learning architectures **with a similar number of parameters** (86-88 million). The models include Transformers and Convolutional Neural Networks (CNNs) and were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on an Intel Core i9-9900K CPU and NVIDIA RTX 4070 GPU, using a consistent training configuration (learning rate, epochs, batch size, optimizer). 
 
 | **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance** | **GPU Performance** |
 |----------------------|----------------|-----------------|--------------|---------------------|---------------------|
