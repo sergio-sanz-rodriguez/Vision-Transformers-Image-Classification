@@ -117,9 +117,9 @@ This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 # 5. Comparing Vision Transformers and CNNs for Food Classification
 I am impressed by the remarkable performance of Vision Transformers (ViT) in computer vision tasks. Recently, I started a project to classify 101 food types using the vanilla ViT-Base/16-224 network. After seeing promising results, I decided push the boundaries and aim to surpass the current performance.
 
-The following table compares different deep learning architectures with a similar number of parameters (~87 million). The models were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on both CPU and GPU, using a consistent training configuration (learning rate, epochs, batch size). 
+The following table compares deep learning architectures with a similar number of parameters (86-88 million). The models include Transformers and Convolutional Neural Networks (CNNs) and were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on an Intel Core i9-9900K CPU and NVIDIA RTX 4070 GPU, using a consistent training configuration (learning rate, epochs, batch size, optimizer). 
 
-| **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance<br>( Intel Core i9-9900K)** | **GPU Performance<br>(NVIDIA RTX 4070)** |
+| **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance** | **GPU Performance** |
 |----------------------|----------------|-----------------|--------------|---------------------|---------------------|
 | **ConvNeXt-Base**    | CNN            | 87.7 million    | 91.3%        | 7.3 images/sec      | 22.7 images/sec     |
 | **ResNeXt101 32X8D** | CNN            | 87.0 million    | 90.0%        | 6.6 images/sec      | 21.7 images/sec     |
@@ -136,7 +136,7 @@ The following table compares different deep learning architectures with a simila
 
 ### Which Model Should Be Chosen?
 
-The best choice ultimately depends on the use case. For models of comparable size (~87 million parameters), I would personally choose **ConvNeXt-Base** for CPU-based production workflows, even though it may not deliver the highest accuracy. Accuracy can often be improved through fine-tuning and additional data, but speed remains consistent.
+The best choice ultimately depends on the use case. For models of comparable size (~87 million parameters), I would personally choose **ConvNeXt-Base** or perhaps **ViT-Base/16-224** for CPU-based production workflows, even though they may not deliver the highest accuracy. Accuracy can often be improved through fine-tuning and additional data, but speed remains consistent.
 
 For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the best choice.
 
