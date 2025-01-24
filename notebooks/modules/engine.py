@@ -1071,7 +1071,7 @@ class Trainer:
                                     "test_fpr": test_fpr}, 
                 global_step=epoch)
             writer.add_scalars(
-                main_tag=f"pAUC at {recall_threshold_pauc * 100}% recall", 
+                main_tag=f"pAUC above {recall_threshold_pauc * 100}% recall", 
                 tag_scalar_dict={"train_pauc": train_pauc,
                                     "test_pauc": test_pauc}, 
                 global_step=epoch)
@@ -1116,7 +1116,7 @@ class Trainer:
             plt.subplot(1, n_plots, 4)
             plt.plot(range_epochs, self.results["train_pauc"], label="train_pauc_at_recall")
             plt.plot(range_epochs, self.results["test_pauc"], label="test_pauc_at_recall")
-            plt.title(f"pAUC at {recall_threshold_pauc * 100}% recall")
+            plt.title(f"pAUC above {recall_threshold_pauc * 100}% recall")
             plt.xlabel("Epochs")
             plt.grid(visible=True, which="both", axis="both")
             plt.legend()
