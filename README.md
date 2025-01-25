@@ -4,7 +4,7 @@
 
 # Implementing Vision Transformers (ViT) for Multi-class Image Classification
 
-## 1. Author
+## Author
 
 [Sergio Sanz](https://www.linkedin.com/in/sergio-sanz-rodriguez/)
 
@@ -114,10 +114,19 @@ Therefore, the **`ViT-Base/16-384`** architectures (ViT B and ViT C) are the one
 
 This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 
-# 5. Comparing Vision Transformers and CNNs for Food Classification
+## 5. Comparing Vision Transformers and CNNs for Food Classification
 I am impressed by the remarkable performance of Vision Transformers (ViT) in computer vision tasks. Recently, I started a project to classify 101 food types using the vanilla ViT-Base/16-224 network. After seeing promising results, I decided push the boundaries and aim to surpass the current performance.
 
-The following table compares deep learning architectures **with a similar number of parameters** (86-88 million). The models include Transformers and Convolutional Neural Networks (CNNs) and were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on an Intel Core i9-9900K CPU and NVIDIA RTX 4070 GPU, using a consistent training configuration (learning rate, epochs, batch size, optimizer). 
+The following table compares deep learning architectures **with a similar number of parameters** (86-88 million). The models include Transformers and Convolutional Neural Networks (CNNs) and were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on an Intel Core i9-9900K CPU and NVIDIA RTX 4070 GPU, using a consistent training configuration (learning rate, epochs, batch size, optimizer).
+
+The assessed models are briefly described next:
+
+* [ConvNeXt-Base](https://arxiv.org/abs/2201.03545): A convolutional neural network (CNN) inspired by the simplicity of modern vision transformers. It incorporates improvements like inverted bottlenecks and layer normalization to enhance performance while retaining the efficiency of CNNs.
+* [ResNeXt101 32X8D](https://pytorch.org/vision/main/models/generated/torchvision.models.resnext101_32x8d.html): A deep CNN architecture that builds on ResNet by introducing grouped convolutions, which split the filters into smaller groups for better feature extraction and increased model capacity without significantly increasing computational cost.
+* [ViT-Base/16-224 and ViT-Base/16-384](https://arxiv.org/abs/2010.11929): As already mentioned, these are ViT models that divide input images into patches and process them using transformer architectures. The numbers indicate the patch size (16x16) and input resolution (224x224 or 384x384), with the larger resolution offering better accuracy at the expense of computational efficiency.
+* [DeiT-Base/16-384](https://arxiv.org/abs/2012.12877): A Data-efficient Image Transformer (DeiT) that improves upon ViT by introducing data-efficient training techniques and token-based distillation, resulting in strong performance without requiring massive datasets.
+* [Swin-V2-T-Base](https://github.com/microsoft/Swin-Transformer): A Swin Transformer that uses shifted windows to efficiently model long-range dependencies. This hierarchical architecture enables scalability to higher resolutions while improving accuracy and efficiency in image classification tasks.
+
 
 | **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance** | **GPU Performance** |
 |----------------------|----------------|-----------------|--------------|---------------------|---------------------|
@@ -149,36 +158,55 @@ For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the
 
 <br>
 
-## 5. Description of the Notebooks
+## 6. Description of the Notebooks
 
+### Dataset Creation
 * [Custom_Data_Creation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation.ipynb): This notebook downloads and creates the image dataset for the food classifier network, splitting the data into train and test subsets.
 * [Custom_Data_Creation_Classification.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Custom_Data_Creation_Classification.ipynb): This notebook downloads and creates the image dataset for the binary classification network, splitting the data into train and test subsets.
 * [Unknown_Class_Generation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Unknown_Class_Generation.ipynb). This notebook generates the "unknown" category, which is required to train the ViT model for 102 classes (101 known food types plus the "unknown" category).
 * [Unknown_Class_Generation_2.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Unknown_Class_Generation_2.ipynb). This notebook generates the "unknown" class for the binary classification model that differentiates between known and unknown food types.
+
+### Binary Classificators
 * [FoodNoFood_Classification_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/FoodNoFood_Classification_Modeling.ipynb): It implements a binary classification model to distinguish between food and non-food images, using the simple EfficientNetB0 architecture.
 * [KnownUnknown_Classification_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/KnownUnknown_Classification_Modeling.ipynb): It implements a binary classification model to distinguish between known and unknown food categories, using the simple EfficientNetB0 architecture.
+
+### Multi-class Model Training
 * [EfficientNetB2_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetB2_Modeling.ipynb): In this notebook, an EfficientNetB2 Convolutional Neural Network (CNN) is trained for different combinations of parameters, such as batch size, hidden units, and number of epochs.
 * [EfficientNetV2L_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetV2L_Modeling.ipynb): In this notebook, an EfficientNetV2L CNN is trained for different combinations of parameters, such as batch size, hidden units, and number of epochs.
 * [ViT_Modeling_v1.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v1.ipynb): This notebook outlines the creation, compilation, and training of multiple ViT-Base and ViT-Large networks, by applying both transfer learning and regular learning of the whole backbones. Several training configurations have been tested in order to find the optimal tunning for these architectures.
 * [ViT_Modeling_v2.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v2.ipynb): It includes more ViT-Base models trained with an input image size of 384x384 pixels instead of 224x224 pixels, which require other non-default pretrained weights, particularly [ViT_B_16_Weights.IMAGENET1K_SWAG_E2E_V1](https://pytorch.org/vision/main/models/generated/torchvision.models.vit_b_16.html#torchvision.models.vit_b_16).
 * [ViT_Modeling_v3.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v3.ipynb): It includes more ViT-Base models trained with 102 classes, the 101 original ones plus another called "unknown", and using an input image size of 384x384 pixels instead of 224x224 pixels, which require other non-default pretrained weights, particularly [ViT_B_16_Weights.IMAGENET1K_SWAG_E2E_V1](https://pytorch.org/vision/main/models/generated/torchvision.models.vit_b_16.html#torchvision.models.vit_b_16).
+
+### Multi-class Model Performance Evaluation
 * [EfficientNetB2_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetB2_Evaluation.ipynb): This notebook mainly focuses on evaluating the model obtained from the EfficientNetB2_Modeling.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 * [EfficientNetV2L_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetV2L_Evaluation.ipynb): This notebook mainly focuses on evaluating the model obtained from the EfficientNetV2L_Modeling.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 * [ViT_Evaluation_v1.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Evaluation_v1.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the ViT_Modeling_v1.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 * [ViT_Evaluation_v2.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Evaluation_v2.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the ViT_Modeling_v2.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 * [ViT_Evaluation_v3.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Evaluation_v3.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the ViT_Modeling_v3.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
+
+### Comparing Vision Transformers and CNNs
+* [Comp_ConvNeXt_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ConvNeXt_Modeling.ipynb) / [Comp_ConvNeXt_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ConvNeXt_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ConvNeXt CNN model.
+* [Comp_ConvNeXt_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ConvNeXt_Modeling.ipynb) / [Comp_ResNeXt101_32X8D_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ResNeXt101_32X8D_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ResNeXt101-32X8D CNN model.
+* [Comp_ViT224_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT224_Modeling.ipynb) / [Comp_ViT224_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT224_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ViT/16-224 Transformer model.
+* [Comp_ViT384_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT384_Modeling.ipynb) / [Comp_ViT384_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT384_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ViT/16-384 Transformer model.
+* [Comp_DeiT_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_DeiT_Modeling.ipynb) / [Comp_DeiT_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_DeiT_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a [Data Efficient Image Transformer (DeiT)](https://arxiv.org/abs/2012.12877) model.
+* [Comp_Swin_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_Swin_Modeling.ipynb) / [Comp_Swin_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_Swin_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a [Hierarchical Vision Transformer based on Schifted Windows (Swin)](https://github.com/microsoft/Swin-Transformer) model.
+
+### The App
 * [Model_Deployment.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment.ipynb): This notebook generates the necessary files and graphical user interface for the web application to be hosted on Hugging Face. The Gradio framework is used to showcase the performance of the transformer network.
 * [Model_Deployment_v2.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v2.ipynb): This notebook adds a binary classification model to the app, designed to distinguish between food and non-food images.
 * [Model_Deployment_v3.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v3.ipynb): This notebook replaces the food classification model with another one with higher prediction accuracy, but at the cost of slower predictions. This new ViT model analyses images of 384x384 pixels, instead of 224x224 pixels.
 * [Model_Deployment_v4.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v4.ipynb): This notebook updates the app to use a new ViT-Base/16-384 model trained with 102 (110 + "unknown") classes (see [ViT_Modeling_v3.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v3.ipynb)). This network analyses images of 384x384 pixels, instead of 224x224 pixels.
 * [Model_Deployment_v5.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v5.ipynb): This notebook introduces an updated version of the app, with the primary change being an improved display of the supported food types.
 * [Model_Deployment_v6.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v6.ipynb): This notebook updated the app with the inclusion of another binary classification model to distiguish between known and unknown food types. This change only affect the ViT Pro model.
+
+### ViT and Other Training Libraries
 * [vision_transformer.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/vision_transformer.py): Implementation of the ViT architecture describe in the paper titled ["An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale"](https://arxiv.org/abs/2010.11929). Two classes are implemented: 
     * `ViT`: original ViT architecture as described in the paper
     * `ViTv2`: identical to ViT except that the classification head can be passed as an argument, allowing for customization of the number of hidden layers and units per layer. Even it is also possible to pass a list of classification heads and stacking them by averaging.
 * [engine.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/engine.py): Contains functions to handle the training, validation, and inference processes of a neural network.
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
-* [scheduler.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/scheduler.py): A collection of custome learning rate schedulers. Some classes have been taken from [kamrulhasanrony](https://github.com/kamrulhasanrony/Vision-Transformer-based-Food-Classification/tree/master). Many thanks!
+* [schedulers.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/schedulers.py): A collection of custome learning rate schedulers. Some classes have been taken from [kamrulhasanrony](https://github.com/kamrulhasanrony/Vision-Transformer-based-Food-Classification/tree/master). Many thanks!
 
 
 
