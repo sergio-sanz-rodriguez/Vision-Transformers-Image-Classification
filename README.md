@@ -54,7 +54,7 @@ This advanced ViT architecture builds upon the EfficientNetB0 and ViT-Base/16-38
 
 The new ViT network, referred to as **ViT C** for simplicity, is also a **ViT-Base/16-384** and is trained to recognize the original 101 food types along with an additional "unknown" category. This **"unknown"** class was constructed using images from the [iFood-2019 dataset](https://www.kaggle.com/competitions/ifood-2019-fgvc6/data) dataset, which features 251 food types. The unknown category for both new models includes food images (and some non-food images) that do not belong to any of the predefined classes.
 
-If both ViT classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the third model, which incorporates enriched information, is used. This approach ensures that the architecture avoids incorrect classifications by the first model, particularly for images that do not belong to any of the supported categories, as the first model lacks the "unknown" class.
+If both ViT classifiers agree on the top-class prediction, it is highly likely that the food depicted in the image corresponds to that category. In cases of discrepancy, the output from the ViT C model, which incorporates enriched information for detecting unknown cases, is used. This approach ensures that the architecture avoids incorrect classifications by the ViT B model, particularly for images that do not belong to any of the supported categories, as this model lacks the "unknown" class.
 
 <div align="center">
   <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="1000"/>
@@ -114,7 +114,7 @@ Therefore, the **`ViT-Base/16-384`** architectures (ViT B and ViT C) are the one
 
 This figure illustrates the F1-Score per class obtained by ViT-Base/16-384.
 
-## 5. Comparing Vision Transformers and CNNs for Food Classification
+## 5. Benchmarking Study: Comparing Vision Transformers and CNNs for Food Classification
 I am impressed by the remarkable performance of Vision Transformers (ViT) in computer vision tasks. Recently, I started a project to classify 101 food types using the vanilla ViT-Base/16-224 network. After seeing promising results, I decided push the boundaries and aim to surpass the current performance.
 
 The following table compares deep learning architectures **with a similar number of parameters** (86-88 million). The models include Transformers and Convolutional Neural Networks (CNNs) and were evaluated based on accuracy, false positive rate at 95% recall (skipped for simplicity), and performance on an Intel Core i9-9900K CPU and NVIDIA RTX 4070 GPU, using a consistent training configuration (learning rate, epochs, batch size, optimizer).
@@ -125,7 +125,7 @@ The assessed models are briefly described next:
 * [ResNeXt101 32X8D](https://pytorch.org/vision/main/models/generated/torchvision.models.resnext101_32x8d.html): A deep CNN architecture that builds on ResNet by introducing grouped convolutions, which split the filters into smaller groups for better feature extraction and increased model capacity without significantly increasing computational cost.
 * [ViT-Base/16-224 and ViT-Base/16-384](https://arxiv.org/abs/2010.11929): As already mentioned, these are ViT models that divide input images into patches and process them using transformer architectures. The numbers indicate the patch size (16x16) and input resolution (224x224 or 384x384), with the larger resolution offering better accuracy at the expense of computational efficiency.
 * [DeiT-Base/16-384](https://arxiv.org/abs/2012.12877): A Data-efficient Image Transformer (DeiT) that improves upon ViT by introducing data-efficient training techniques and token-based distillation, resulting in strong performance without requiring massive datasets.
-* [Swin-V2-T-Base](https://github.com/microsoft/Swin-Transformer): A Swin Transformer that uses shifted windows to efficiently model long-range dependencies. This hierarchical architecture enables scalability to higher resolutions while improving accuracy and efficiency in image classification tasks.
+* [Swin-V2-T-Base](https://pytorch.org/vision/main/models/swin_transformer.html): A Swin Transformer that uses shifted windows to efficiently model long-range dependencies. This hierarchical architecture enables scalability to higher resolutions while improving accuracy and efficiency in image classification tasks.
 
 
 | **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance** | **GPU Performance** |
@@ -190,7 +190,7 @@ For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the
 * [Comp_ViT224_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT224_Modeling.ipynb) / [Comp_ViT224_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT224_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ViT/16-224 Transformer model.
 * [Comp_ViT384_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT384_Modeling.ipynb) / [Comp_ViT384_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ViT384_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ViT/16-384 Transformer model.
 * [Comp_DeiT_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_DeiT_Modeling.ipynb) / [Comp_DeiT_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_DeiT_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a [Data Efficient Image Transformer (DeiT)](https://arxiv.org/abs/2012.12877) model.
-* [Comp_Swin_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_Swin_Modeling.ipynb) / [Comp_Swin_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_Swin_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a [Hierarchical Vision Transformer based on Schifted Windows (Swin)](https://github.com/microsoft/Swin-Transformer) model.
+* [Comp_Swin_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_Swin_Modeling.ipynb) / [Comp_Swin_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_Swin_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a [Hierarchical Vision Transformer based on Schifted Windows (Swin)](https://pytorch.org/vision/main/models/swin_transformer.html) model.
 
 ### The App
 * [Model_Deployment.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment.ipynb): This notebook generates the necessary files and graphical user interface for the web application to be hosted on Hugging Face. The Gradio framework is used to showcase the performance of the transformer network.
@@ -207,6 +207,3 @@ For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the
 * [engine.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/engine.py): Contains functions to handle the training, validation, and inference processes of a neural network.
 * [helper_functions.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/helper_functions.py): Provides utility functions for analysis, visualization, and reading/writing PyTorch neural networks.
 * [schedulers.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/schedulers.py): A collection of custome learning rate schedulers. Some classes have been taken from [kamrulhasanrony](https://github.com/kamrulhasanrony/Vision-Transformer-based-Food-Classification/tree/master). Many thanks!
-
-
-

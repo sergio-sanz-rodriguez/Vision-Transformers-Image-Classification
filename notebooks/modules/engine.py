@@ -112,9 +112,9 @@ class Trainer:
         Args:
             model (torch.nn.Module): The PyTorch model to handle. Must be instatiated
             save_best_model (bool): Save the best model based on a criterion mode
-            mode: criterion mode for saving the model: "loss" (validation loss), "acc" (validation accuracy), 
+            mode (str): Criterion mode for saving the model: "loss" (validation loss), "acc" (validation accuracy), 
                 "fpr" (fpr at recall), "pauc" (pauc at recall), "all" (all epochs to be saved), 
-                or a list. e.g. ["loss", "fpr"].
+                or a list. e.g. ["loss", "fpr"]. Only applicable if  save_best_model is True.
             device (str, optional): Device to use ('cuda' or 'cpu'). If None, it defaults to 'cuda' if available.
         """
 
@@ -552,6 +552,7 @@ class Trainer:
                 self.model_name_loss = self.model_name.replace(".", f"_loss.")
                 self.model_name_acc = self.model_name.replace(".", f"_acc.")
                 self.model_name_fpr = self.model_name.replace(".", f"_fpr.")
+                self.model_name_pauc = self.model_name.replace(".", f"_pauc.")
                 self.best_test_loss = float("inf") 
                 self.best_test_acc = 0.0
                 self.best_test_fpr = float("inf")
