@@ -3,6 +3,7 @@ Contains functions for training and testing a PyTorch model.
 """
 
 import os
+import glob
 import logging
 import torch
 import torchvision
@@ -92,8 +93,8 @@ def load_model(model: torch.nn.Module,
     return model
 
 
-# Grouping all the functions into a single class
-class Trainer:
+# Training and prediction engine class
+class Engine:
 
     """A class to handle training, evaluation, and predictions for a PyTorch model."""
 
@@ -975,24 +976,24 @@ class Trainer:
 
     
     def display_results(
-            self,
-            epoch,
-            train_loss,
-            train_acc,
-            recall_threshold,
-            recall_threshold_pauc,
-            train_fpr,
-            train_pauc,
-            train_epoch_time,
-            test_loss,
-            test_acc,
-            test_fpr,
-            test_pauc,
-            test_epoch_time,
-            plot_curves,
-            writer
-            ):
-        
+        self,
+        epoch,
+        train_loss,
+        train_acc,
+        recall_threshold,
+        recall_threshold_pauc,
+        train_fpr,
+        train_pauc,
+        train_epoch_time,
+        test_loss,
+        test_acc,
+        test_fpr,
+        test_pauc,
+        test_epoch_time,
+        plot_curves,
+        writer
+        ):
+    
         """
         Displays the training and validation results both numerically and visually.
 
@@ -1155,18 +1156,18 @@ class Trainer:
             else:
                 self.scheduler.step()  # For other schedulers
     
-    # Update the best model and model_epoch list based on the specified mode.
-    def update_best_model(
+    # Updates and saves the best model and model_epoch list based on the specified mode.
+    def update_model(
         self,
         test_loss: float=None,
         test_acc: float=None,
         test_fpr: float=None,
         test_pauc: float=None,
         epoch: int=None,
-    ):
+    ) -> pd.DataFrame:
 
         """
-        Updates the best model and model_epoch list based on the specified mode.
+        Updates and saves the best model and model_epoch list based on the specified mode(s), as well as the last-epoch model.
 
         Parameters:
         - test_loss (float, optional): The test loss for the current epoch. Used if the evaluation mode is "loss".
@@ -1178,17 +1179,26 @@ class Trainer:
         - epoch (int, optional): The current epoch index. Used for naming models when saving all epoch versions in "all" mode.
 
         Functionality:
+        - Saves the last-epoch model.
+        - Saves the logs (self.results)
         - Saves the best-performing model during training based on the specified evaluation mode:
             - "loss": Updates and saves the model if the test loss decreases.
             - "acc": Updates and saves the model if the test accuracy increases.
             - "fpr": Updates and saves the model if the test false positive rate at recall decreases.
+            - "pauc": Upates and saves the model if the pAUC score increases.
         - If the mode is "all", saves the model for every epoch using a unique name that includes the epoch index.
         - The evaluation mode can be a list with some of these metrics, e.g. ["loss", "fpr"]
         - Updates `self.model_best` with the best model's state dictionary if a better model is found.
         - Updates the `self.model_epoch` list for all saved models in "all" mode.
 
+
         This function ensures that the best model is saved for recovery and evaluation and that all models 
         are saved during training when required.
+
+        Returns:
+            A dataframe of training and testing loss, training and testing accuracy metrics,
+            and training testing fpr. Each metric has a value in a list for 
+            each epoch.
         """
 
         if self.save_best_model:
@@ -1197,38 +1207,50 @@ class Trainer:
                     if test_loss is None:
                         raise ValueError("[ERROR] test_loss must be provided when mode is 'loss'.")
                     if test_loss < self.best_test_loss:
+                        file_to_remove = glob.glob(os.path.join(self.target_dir, self.model_name_loss.replace(".", "_epoch*.")))
+                        if file_to_remove:
+                            os.remove(file_to_remove[0])
                         self.best_test_loss = test_loss
                         self.save(
                             model=self.model,
                             target_dir=self.target_dir,
-                            model_name=self.model_name_loss)
+                            model_name=self.model_name_loss.replace(".", f"_epoch{epoch+1}."))
                 elif mode == "acc":
                     if test_acc is None:
                         raise ValueError("[ERROR] test_acc must be provided when mode is 'acc'.")
                     if test_acc > self.best_test_acc:
+                        file_to_remove = glob.glob(os.path.join(self.target_dir, self.model_name_acc.replace(".", "_epoch*.")))
+                        if file_to_remove:
+                            os.remove(file_to_remove[0])
                         self.best_test_acc = test_acc
                         self.save(
                             model=self.model,
                             target_dir=self.target_dir,
-                            model_name=self.model_name_acc)
+                            model_name=self.model_name_acc.replace(".", f"_epoch{epoch+1}."))
                 elif mode == "fpr":
                     if test_fpr is None:
                         raise ValueError("[ERROR] test_fpr must be provided when mode is 'fpr'.")
                     if test_fpr < self.best_test_fpr:
+                        file_to_remove = glob.glob(os.path.join(self.target_dir, self.model_name_fpr.replace(".", "_epoch*.")))
+                        if file_to_remove:
+                            os.remove(file_to_remove[0])
                         self.best_test_fpr = test_fpr
                         self.save(
                             model=self.model,
                             target_dir=self.target_dir,
-                            model_name=self.model_name_fpr)
+                            model_name=self.model_name_fpr.replace(".", f"_epoch{epoch+1}."))
                 elif mode == "pauc":
                     if test_pauc is None:
                         raise ValueError("[ERROR] test_pauc must be provided when mode is 'pauc'.")
                     if test_pauc < self.best_test_pauc:
+                        file_to_remove = glob.glob(os.path.join(self.target_dir, self.model_name_pauc.replace(".", "_epoch*.")))
+                        if file_to_remove:
+                            os.remove(file_to_remove[0])
                         self.best_test_pauc = test_pauc
                         self.save(
                             model=self.model,
                             target_dir=self.target_dir,
-                            model_name=self.model_name_pauc)
+                            model_name=self.model_name_pauc.replace(".", f"_epoch{epoch+1}."))
                 elif mode == "all":
                     if epoch is None:
                         raise ValueError("[ERROR] epoch must be provided when mode is 'all'.")
@@ -1237,45 +1259,44 @@ class Trainer:
                         target_dir=self.target_dir,
                         model_name=self.model_name.replace(".", f"_epoch{epoch+1}."))
                     self.model_epoch[epoch].load_state_dict(self.model.state_dict())
-    
-    def finish_train(
-        self,
-        writer: SummaryWriter=False
-        ) -> pd.DataFrame:
-
-        """
-        Finalizes the training process by closing writer, saving the last model,
-        and creating a dataframe with the training logs
         
-        Args:
-            writer: A SummaryWriter() instance to log model results to.
-
-        Returns:
-            A dataframe of training and testing loss, training and testing accuracy metrics,
-            and training testing fpr. Each metric has a value in a list for 
-            each epoch.
-        """
-
-        # Close the writer
-        writer.close() if writer else None
-
-        # Save the model (last epoch)
+        # Save the actual-epoch model
         self.save(
             model=self.model,
             target_dir=self.target_dir,
             model_name=self.model_name)
 
-        # Return and save the filled results at the end of the epochs
+        # Return and save the results
         name , _ = self.model_name.rsplit('.', 1)
         csv_file_name = f"{name}.csv"
         df_results = pd.DataFrame(self.results)
         df_results.to_csv(os.path.join(self.target_dir, csv_file_name), index=False)
 
         return df_results
+    
+    def finish_train(
+        self,
+        train_time: float=None,
+        writer: SummaryWriter=False
+        ):
 
+        """
+        Finalizes the training process by closing writer, saving the last model,
+        and creating a dataframe with the training logs
+        
+        Args:
+            train_time: Elapsed time.
+            writer: A SummaryWriter() instance to log model results to.
+        """
+
+        # Close the writer
+        writer.close() if writer else None
+
+        # Print elapsed time
+        print(f"Training fisiched! Elapsed time: {self.sec_to_min_sec(train_time)}")
             
     # Trains and tests a Pytorch model
-    def fit(
+    def train(
         self,
         target_dir: str,
         model_name: str,
@@ -1359,6 +1380,8 @@ class Trainer:
                 } 
         """
 
+        train_start_time = time.time()
+
         # Initialize training process
         self.init_train(
             target_dir=target_dir,
@@ -1391,8 +1414,7 @@ class Trainer:
                 accumulation_steps=accumulation_steps,
                 debug_mode=debug_mode
                 )
-            train_epoch_end_time = time.time()
-            train_epoch_time = train_epoch_end_time - train_epoch_start_time
+            train_epoch_time = time.time() - train_epoch_start_time
 
             # Perform test step and time it
             print(f"Validating epoch {epoch+1}...")
@@ -1405,8 +1427,7 @@ class Trainer:
                 enable_clipping=enable_clipping,
                 debug_mode=debug_mode
                 )
-            test_epoch_end_time = time.time()
-            test_epoch_time = test_epoch_end_time - test_epoch_start_time
+            test_epoch_time = time.time() - test_epoch_start_time
 
             clear_output(wait=True)
 
@@ -1435,12 +1456,8 @@ class Trainer:
                 test_acc=test_acc
             )
 
-            # Update the tqdm progress bar description with the current epoch
-            #epoch_bar.set_description(f"Epoch {epoch+1}/{epochs}")
-            #epoch_bar.update(1)
-
-            # Update the best model and model_epoch list based on the specified mode.
-            self.update_best_model(
+            # Update and save the best model, model_epoch list based on the specified mode, and the actual-epoch model.
+            df_results = self.update_model(
                 test_loss=test_loss,
                 test_acc=test_acc,
                 test_fpr=test_fpr,
@@ -1448,7 +1465,9 @@ class Trainer:
                 epoch=epoch
                 )
 
-        df_results = self.finish_train(writer)
+        # Finish training process
+        train_time = time.time() - train_start_time
+        self.finish_train(train_time, writer)
 
         return df_results
 
