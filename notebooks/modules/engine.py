@@ -1242,7 +1242,7 @@ class Engine:
                 elif mode == "pauc":
                     if test_pauc is None:
                         raise ValueError("[ERROR] test_pauc must be provided when mode is 'pauc'.")
-                    if test_pauc < self.best_test_pauc:
+                    if test_pauc > self.best_test_pauc:
                         file_to_remove = glob.glob(os.path.join(self.target_dir, self.model_name_pauc.replace(".", "_epoch*.")))
                         if file_to_remove:
                             os.remove(file_to_remove[0])
