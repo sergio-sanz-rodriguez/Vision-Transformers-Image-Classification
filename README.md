@@ -44,6 +44,12 @@ The Swin Transformer is based on the principles of the Vision Transformer (ViT) 
 
 Swin also introduces **shifted window attention to achieve global context understanding**, where windows overlap between layers, allowing information to flow across the entire image progressively. Additionally, the hierarchical architecture enables multi-scale feature extraction, making the Swin Transformer highly effective for dense prediction tasks such as object detection and segmentation, in addition to image classification.
 
+### 3.3. DeiT Transformer (DeiT)
+
+The Data-efficient Image Transformer (DeiT) enhances the ViT by improving data efficiency through a teacher-student distillation framework. Unlike ViT, which requires large datasets, DeiT uses knowledge distillation with pre-trained CNNs as teachers, enabling effective training on smaller datasets.
+
+A key innovation is the distillation token, which learns from the teacher’s predictions alongside ground truth labels, guiding the model to improved accuracy. DeiT retains global self-attention, capturing relationships between patches efficiently. Its design makes it highly effective for image classification with reduced dependency on large-scale data.
+
 ## 4. Proposed Model Architectures
 
 The classification system includes two deep learning approaches: Transformer Lite and Transformer Pro. The first approach is able to make faster prediction and still reliable predictions, whereas the second one makes more accurate predictions at the expense of longer computation time.
