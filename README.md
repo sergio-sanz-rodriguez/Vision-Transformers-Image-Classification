@@ -12,15 +12,19 @@
 
 This project focuses on the implementation, testing, and evaluation of **Vision Transformer (ViT)** models using PyTorch. The architecture is based on the groundbreaking paper titled ["An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale"](https://arxiv.org/abs/2010.11929) (see above Figure), which introduced the application of transformers—originally developed for Natural Language Processing (NLP)—to computer vision.
 
-The primary objective is to assess the accuracy and performance of ViT models using the [Food-101](https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/) dataset, which consists of 101 food categories. Additionally, a web application showcasing the selected model has been developed to demonstrate its practical use in real-world scenarios.
+In addition to ViT transformers, other transformer-based networks, such as [Swin Transformer](https://arxiv.org/abs/2103.14030) and [DeiT Transformer](https://arxiv.org/abs/2012.12877), as well as state-of-the-art Convolutional Neural Networks (CNNs) are tested and evaluated.
+
+The primary objective is to assess the accuracy and performance of all these models models using the [Food-101](https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/) dataset, which consists of 101 food categories. Additionally, a web application showcasing the selected model has been developed to demonstrate its practical use in real-world scenarios.
 
 ## 2. Web Application
 
-The following web app has been created on Hugging Face to showcase the ViT model in action. Feel free to try it out!
+The following web app has been created on Hugging Face to showcase Transformer models in action. Feel free to try it out!
 
 https://huggingface.co/spaces/sergio-sanz-rodriguez/transform-eats
 
-## 3. Description of the ViT Architecture
+## 3. Description of Transformer Architectures for Computer Vision
+
+### 3.1 Vision Transformer (ViT)
 
 A ViT is a state-of-the-art neural network that utilizes the attention mechanism as its primary learning layer. It divides an image into square patches and establishes relationships between them by identifying the most relevant regions based on contextual information. The multi-head attention mechanism processes these patches and generates a sequence of vectors, each representing a patch along with its contextual features.
 
@@ -34,11 +38,17 @@ One of the outputs of the transformer encoder, typically the representation of t
 
 Within the scope of this project, different ViT model architecutes have been implemented from scratch and evaluated.
 
+### 3.2 Swin Transformer (Swin)
+
+The Swin Transformer is based on the principles of the Vision Transformer (ViT) by incorporating a hierarchical structure and local self-attention mechanisms. Unlike ViT, which processes all image patches globally, the Swin Transformer divides the image into non-overlapping local windows and applies self-attention within each window. This design **reduces computational complexity** and enables the model to **better capture fine-grained local features**.
+
+Swin also introduces **shifted window attention to achieve global context understanding**, where windows overlap between layers, allowing information to flow across the entire image progressively. Additionally, the hierarchical architecture enables multi-scale feature extraction, making the Swin Transformer highly effective for dense prediction tasks such as object detection and segmentation, in addition to image classification.
+
 ## 4. Proposed Model Architectures
 
-The classification system includes two deep learning approaches: ViT Lite and ViT Pro. The first approach is able to make faster prediction and still reliable predictions, whereas the second one makes more accurate predictions at the expense of longer computation time.
+The classification system includes two deep learning approaches: Transformer Lite and Transformer Pro. The first approach is able to make faster prediction and still reliable predictions, whereas the second one makes more accurate predictions at the expense of longer computation time.
 
-### 4.1. ⚡ ViT Lite ⚡ 
+### 4.1. ⚡ Transformer Lite ⚡ 
 
 The ViT Lite architecture is illustrated in the figure below. The process begins with an **EfficientNetB0** classifier, which determines whether the input image depicts food or non-food. If the image is classified as food, it is passed to a second deep learning model, a **ViT-Base/16-384** network. This network is also referred to as **ViT B** for simplicity.
 
@@ -48,7 +58,7 @@ This model resizes images to **384×384 pixels**, divides them into **16×16 pat
   <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="550"/>
 </div>
 
-### 4.2. 💎 ViT Pro 💎
+### 4.2. 💎 Transformer Pro 💎
 
 This advanced ViT architecture builds upon the EfficientNetB0 and ViT-Base/16-384 algorithms, incorporating an additional classification model and a new ViT network to enhance prediction accuracy. The additional classification model, also based on EfficientNetB0, is designed to differentiate between known and unknown classes.
 
@@ -98,9 +108,9 @@ As observed, the binary classification model also achieves near perfect predicti
 | Number of classes | 101 | 101 | 101 | 101 | 101 + "unknown" |
 | Model size | 37 MB | 461 MB | 327 MB | 328 MB | 328 MB |
 | Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
-| Accuracy | 88.0% | 92.9% | 87.7% | 91.6% | 91.3% |
-| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.2 images/sec | 3.2 images/sec |
-| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 50 images/sec | 50 images/sec | 50 images/sec |
+| Accuracy | 88.0% | 92.9% | 87.7% | 92.7% | 92.8% |
+| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.1 images/sec | 3.1 images/sec |
+| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 45.7 images/sec | 40.3 images/sec | 40 images/sec |
 | Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~20 min/epoch |
 <br>
 
@@ -125,7 +135,7 @@ The assessed models are briefly described next:
 * [ResNeXt101 32X8D](https://pytorch.org/vision/main/models/generated/torchvision.models.resnext101_32x8d.html): A deep CNN architecture that builds on ResNet by introducing grouped convolutions, which split the filters into smaller groups for better feature extraction and increased model capacity without significantly increasing computational cost.
 * [ViT-Base/16-224 and ViT-Base/16-384](https://arxiv.org/abs/2010.11929): As already mentioned, these are ViT models that divide input images into patches and process them using transformer architectures. The numbers indicate the patch size (16x16) and input resolution (224x224 or 384x384), with the larger resolution offering better accuracy at the expense of computational efficiency.
 * [DeiT-Base/16-384](https://arxiv.org/abs/2012.12877): A Data-efficient Image Transformer (DeiT) that improves upon ViT by introducing data-efficient training techniques and token-based distillation, resulting in strong performance without requiring massive datasets.
-* [Swin-V2-T-Base](https://pytorch.org/vision/main/models/swin_transformer.html): A Swin Transformer that uses shifted windows to efficiently model long-range dependencies. This hierarchical architecture enables scalability to higher resolutions while improving accuracy and efficiency in image classification tasks.
+* [Swin-V2-T-Base](https://pytorch.org/vision/main/models/swin_transformer.html): As previously mentioned, a Swin Transformer that uses shifted windows to efficiently model long-range dependencies. This hierarchical architecture enables scalability to higher resolutions while improving accuracy and efficiency in image classification tasks.
 
 
 | **Model**            | **Type**       | **Num. Params** | **Accuracy** | **CPU Performance** | **GPU Performance** |

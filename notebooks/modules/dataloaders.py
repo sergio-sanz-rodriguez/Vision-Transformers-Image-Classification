@@ -253,7 +253,7 @@ def create_dataloaders_for_vit(
         if aug:
             manual_transforms_train_vitb = v2.Compose([    
                 v2.TrivialAugmentWide(),
-                v2.Resize((256, 256)),
+                v2.Resize((256)),
                 v2.RandomCrop((IMG_SIZE, IMG_SIZE)),    
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -262,7 +262,7 @@ def create_dataloaders_for_vit(
             ])
         else:
             manual_transforms_train_vitb = v2.Compose([
-                v2.Resize((256, 256)),
+                v2.Resize((256)),
                 v2.CenterCrop((IMG_SIZE, IMG_SIZE)),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -272,7 +272,7 @@ def create_dataloaders_for_vit(
 
         # Manual transforms for the test dataset
         manual_transforms_test_vitb = v2.Compose([    
-            v2.Resize((256, 256)),
+            v2.Resize((256)),
             v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
@@ -298,7 +298,7 @@ def create_dataloaders_for_vit(
         if aug:
             manual_transforms_train_vitb = v2.Compose([    
                 v2.TrivialAugmentWide(),
-                v2.Resize((IMG_SIZE_2, IMG_SIZE_2)),
+                v2.Resize((384)),
                 v2.CenterCrop((IMG_SIZE_2, IMG_SIZE_2)),    
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -307,7 +307,7 @@ def create_dataloaders_for_vit(
             ])
         else:
             manual_transforms_train_vitb = v2.Compose([
-                v2.Resize((IMG_SIZE_2, IMG_SIZE_2)),
+                v2.Resize((384)),
                 v2.CenterCrop((IMG_SIZE_2, IMG_SIZE_2)),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -317,7 +317,7 @@ def create_dataloaders_for_vit(
 
         # Manual transforms for the test dataset
         manual_transforms_test_vitb = v2.Compose([    
-            v2.Resize((IMG_SIZE_2, IMG_SIZE_2)),
+            v2.Resize((384)),
             v2.CenterCrop((IMG_SIZE_2, IMG_SIZE_2)),    
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
@@ -344,7 +344,7 @@ def create_dataloaders_for_vit(
         if aug:
             manual_transforms_train_vitl = v2.Compose([    
                 v2.TrivialAugmentWide(),
-                v2.Resize((242, 242)),
+                v2.Resize((242)),
                 v2.RandomCrop((IMG_SIZE, IMG_SIZE)),    
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -353,7 +353,7 @@ def create_dataloaders_for_vit(
             ])
         else:
             manual_transforms_train_vitl = v2.Compose([
-                v2.Resize((242, 242)),
+                v2.Resize((242)),
                 v2.CenterCrop((IMG_SIZE, IMG_SIZE)),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -363,7 +363,7 @@ def create_dataloaders_for_vit(
 
         # Manual transforms for the test dataset
         manual_transforms_test_vitl = v2.Compose([    
-            v2.Resize((242, 242)),
+            v2.Resize((242)),
             v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
@@ -389,7 +389,7 @@ def create_dataloaders_for_vit(
         if aug:
             manual_transforms_train_vitl = v2.Compose([    
                 v2.TrivialAugmentWide(),
-                v2.Resize((256, 256)),
+                v2.Resize((256)),
                 v2.RandomCrop((IMG_SIZE, IMG_SIZE)),    
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -398,7 +398,7 @@ def create_dataloaders_for_vit(
             ])
         else:
             manual_transforms_train_vitl = v2.Compose([
-                v2.Resize((256, 256)),
+                v2.Resize((256)),
                 v2.CenterCrop((IMG_SIZE, IMG_SIZE)),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -408,7 +408,7 @@ def create_dataloaders_for_vit(
 
         # Manual transforms for the test dataset
         manual_transforms_test_vitl = v2.Compose([    
-            v2.Resize((256, 256)),
+            v2.Resize((256)),
             v2.CenterCrop((IMG_SIZE, IMG_SIZE)),    
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
@@ -433,7 +433,7 @@ def create_dataloaders_for_vit(
         if aug:
             manual_transforms_train_vitl = v2.Compose([    
                 v2.TrivialAugmentWide(),
-                v2.Resize((518, 518)),
+                v2.Resize((518)),
                 v2.RandomCrop((IMG_SIZE_3, IMG_SIZE_3)),    
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -442,7 +442,7 @@ def create_dataloaders_for_vit(
             ])
         else:
             manual_transforms_train_vitl = v2.Compose([
-                v2.Resize((518, 518)),
+                v2.Resize((518)),
                 v2.CenterCrop((IMG_SIZE_3, IMG_SIZE_3)),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
@@ -452,7 +452,7 @@ def create_dataloaders_for_vit(
 
         # Manual transforms for the test dataset
         manual_transforms_test_vitl = v2.Compose([    
-            v2.Resize((518, 518)),
+            v2.Resize((518)),
             v2.CenterCrop((IMG_SIZE_3, IMG_SIZE_3)),    
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),

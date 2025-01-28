@@ -42,7 +42,7 @@ def load_model(model: torch.nn.Module,
 def create_vitbase_model(
     model_weights_dir:Path,
     model_weights_name:str,
-    img_size:int=224,
+    image_size:int=224,
     num_classes:int=101,
     compile:bool=False
     ):
@@ -53,7 +53,7 @@ def create_vitbase_model(
     Args:
         model_weights_dir: A directory where the model is located.
         model_weights_name: The name of the model to load.
-        img_size: The size of the input image.
+        image_size: The size of the input image.
         num_classes: The number of classes for the classification task.
 
     Returns:
@@ -61,19 +61,8 @@ def create_vitbase_model(
     """ 
 
     # Instantiate the model
-    vitbase16_model = ViT(
-        img_size=img_size,
-        in_channels=3,
-        patch_size=16,
-        num_transformer_layers=12,
-        emb_dim=768,
-        mlp_size=3072,
-        num_heads=12,
-        attn_dropout=0,
-        mlp_dropout=0.1,
-        emb_dropout=0.1,
-        num_classes=num_classes
-    )
+    vitbase16_model = torchvision.models.vit_b_16(image_size=image_size).to("cpu")
+    vitbase16_model.heads = torch.nn.Linear(in_features=768, out_features=num_classes).to("cpu")
     
     # Compile the model
     if compile:

@@ -48,19 +48,19 @@ effnetb0_model_2 = create_effnetb0(
     )
 
 # Load the ViT-Base/16 transformer with input image of 384x384 pixels and 101 + unknown classes
-vitbase_model_102 = create_vitbase_model(
+vitbase_model_101 = create_vitbase_model(
     model_weights_dir=".",
-    model_weights_name="vitbase16_102_2025-01-04.pth",
-    img_size=384,
-    num_classes=num_classes_102,
+    model_weights_name="vitbase16_101_2025-01-27_epoch17.pth",
+    image_size=384,
+    num_classes=num_classes_101,
     compile=True
 )
 
-vitbase_model_101 = create_vitbase_model(
+vitbase_model_102 = create_vitbase_model(
     model_weights_dir=".",
-    model_weights_name="vitbase16_2_2024-12-31.pth",
-    img_size=384,
-    num_classes=num_classes_101,
+    model_weights_name="vitbase16_102_2025-01-27_epoch19.pth",
+    image_size=384,
+    num_classes=num_classes_102,
     compile=True
 )
 
@@ -76,7 +76,7 @@ transforms_eff = v2.Compose([
 
 # Specify manual transforms for ViTs
 transforms_vit = v2.Compose([    
-    v2.Resize((384)), #v2.Resize((384, 384)),
+    v2.Resize((384)),
     v2.CenterCrop((384, 384)),    
     v2.ToImage(),
     v2.ToDtype(torch.float32, scale=True),
@@ -88,8 +88,8 @@ transforms_vit = v2.Compose([
 # Put models into evaluation mode and turn on inference mode
 effnetb0_model_1.eval()
 effnetb0_model_2.eval()
-vitbase_model_102.eval()
 vitbase_model_101.eval()
+vitbase_model_102.eval()
 
 # Set thresdholds
 BINARY_CLASSIF_THR_1 = 0.8310611844062805
@@ -114,7 +114,7 @@ def entropy(pred_probs):
     Returns:
         float: The entropy value.
     """
-
+    #pred_probs = pred_probs[1:-1]
     return -torch.sum(pred_probs * torch.log(pred_probs)).item()
 
 # Computes the model prediction outputs as probabilities
@@ -184,22 +184,25 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
                         # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
                         pred_probs_102 = predict(image_vit, vitbase_model_102)
                         pred_probs_101 = predict(image_vit, vitbase_model_101)
-
+                        
                         # Calculate entropy
+                        entropy_102 = entropy(pred_probs_102)
                         entropy_101 = entropy(pred_probs_101)
-
+                        
                         # Create a prediction label and prediction probability dictionary for each prediction class
                         pred_classes_and_probs_102 = {class_names_102[i]: float(pred_probs_102[0][i]) for i in range(num_classes_102)}
                         pred_classes_and_probs_101 = {class_names_101[i]: float(pred_probs_101[0][i]) for i in range(num_classes_101)}
                         pred_classes_and_probs_101["unknown"] = 0.0
-
+                        
                         # Get the top predicted class
                         top_class_102 = max(pred_classes_and_probs_102, key=pred_classes_and_probs_102.get)
                         sec_class_102 = sorted(pred_classes_and_probs_102.items(), key=lambda x: x[1], reverse=True)[1][0]
                         top_class_101 = max(pred_classes_and_probs_101, key=pred_classes_and_probs_101.get)
 
                         # Check out entropy
-                        if pred_probs_101[0][class_names_101.index(top_class_101)] <= MULTICLASS_CLASSIF_THR and entropy_101 > ENTROPY_THR:
+                        condition_102 = pred_probs_102[0][class_names_102.index(top_class_102)] <= MULTICLASS_CLASSIF_THR and entropy_102 > ENTROPY_THR
+                        condition_101 = pred_probs_101[0][class_names_101.index(top_class_101)] <= MULTICLASS_CLASSIF_THR and entropy_101 > ENTROPY_THR
+                        if condition_101 and condition_102:
 
                             # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
                             pred_classes_and_probs_101["unknown"] = pred_probs_101.max() * 1.25
@@ -244,7 +247,7 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
 
                     # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
                     pred_probs_101 = predict(image_vit, vitbase_model_101) # 101 classes
-
+                    
                     # Calculate entropy
                     entropy_101 = entropy(pred_probs_101)
 
@@ -257,7 +260,7 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
 
                     # If the image is likely to be an unknown category
                     if pred_probs_101[0][class_names_101.index(top_class)] <= MULTICLASS_CLASSIF_THR and entropy_101 > ENTROPY_THR:
-
+                 
                         # Create prediction label and prediction probability for class unknown and rescale the rest of predictions
                         pred_classes_and_probs["unknown"] = pred_probs_101.max() * 1.25
                         prob_sum = sum(pred_classes_and_probs.values())
@@ -267,7 +270,7 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
                         top_class = "unknown"
                         
             # Otherwise
-            else:
+            else:                
 
                 # Set all probabilites to zero except class unknown
                 pred_classes_and_probs = {class_names_101[i]: 0.0 for i in range(num_classes_101)}

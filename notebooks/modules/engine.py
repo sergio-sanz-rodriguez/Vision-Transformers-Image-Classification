@@ -96,7 +96,24 @@ def load_model(model: torch.nn.Module,
 # Training and prediction engine class
 class Engine:
 
-    """A class to handle training, evaluation, and predictions for a PyTorch model."""
+    """
+    A class to handle training, evaluation, and predictions for a PyTorch model.
+
+    This class provides functionality to manage the training and evaluation lifecycle
+    of a PyTorch model, including saving the best model based on specific criteria.
+
+    Args:
+        model (torch.nn.Module, optional): The PyTorch model to handle. Must be instantiated.
+        save_best_model (bool): Whether to save the best model based on a criterion mode.
+        mode (Union[str, List[str]]): Criterion mode for saving the model: 
+            - "loss" (validation loss)
+            - "acc" (validation accuracy)
+            - "fpr" (false positive rate at recall)
+            - "pauc" (partial area under the curve at recall)
+            - "all" (save models for all epochs)
+            - A list, e.g., ["loss", "fpr"], is also allowed. Only applicable if `save_best_model` is True.
+        device (str, optional): Device to use ('cuda' or 'cpu'). Defaults to 'cuda' if available, else 'cpu'.
+    """
 
     def __init__(
         self,
@@ -106,18 +123,6 @@ class Engine:
         device: str="cuda" if torch.cuda.is_available() else "cpu"
         ):
         super().__init__()
-
-        """
-        Initialize the class.
-        
-        Args:
-            model (torch.nn.Module): The PyTorch model to handle. Must be instatiated
-            save_best_model (bool): Save the best model based on a criterion mode
-            mode (str): Criterion mode for saving the model: "loss" (validation loss), "acc" (validation accuracy), 
-                "fpr" (fpr at recall), "pauc" (pauc at recall), "all" (all epochs to be saved), 
-                or a list. e.g. ["loss", "fpr"]. Only applicable if  save_best_model is True.
-            device (str, optional): Device to use ('cuda' or 'cpu'). If None, it defaults to 'cuda' if available.
-        """
 
         # Ensure mode is a list
         if isinstance(mode, str):
@@ -1281,8 +1286,7 @@ class Engine:
         ):
 
         """
-        Finalizes the training process by closing writer, saving the last model,
-        and creating a dataframe with the training logs
+        Finalizes the training process by closing writer and showing the elapsed time.
         
         Args:
             train_time: Elapsed time.
@@ -1293,7 +1297,7 @@ class Engine:
         writer.close() if writer else None
 
         # Print elapsed time
-        print(f"Training fisiched! Elapsed time: {self.sec_to_min_sec(train_time)}")
+        print(f"[INFO] Training finished! Elapsed time: {self.sec_to_min_sec(train_time)}")
             
     # Trains and tests a Pytorch model
     def train(
@@ -1380,6 +1384,7 @@ class Engine:
                 } 
         """
 
+        # Starting training time
         train_start_time = time.time()
 
         # Initialize training process
@@ -1549,7 +1554,7 @@ class Engine:
         transform: torchvision.transforms, 
         class_names: List[str], 
         model_state: str="default",
-        percent_samples: float=1.0,
+        sample_fraction: float=1.0,
         seed=42,        
         ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         
@@ -1561,7 +1566,7 @@ class Engine:
             test_dir (str): The directory containing the test images.
             transform (torchvision.transforms): The transformation to apply to the test images.
             class_names (list): A list of class names.
-            percent_samples (float, optional): The percentage of samples to predict. Defaults to 1.0.
+            sample_fraction (float, optional): The fraction of samples to predict. Defaults to 1.0.
             seed (int, optional): The random seed for reproducibility. Defaults to 42.
 
         Returns:
@@ -1599,7 +1604,7 @@ class Engine:
 
         # Number of random images to extract
         num_samples = len(paths)
-        num_random_images = int(percent_samples * num_samples)
+        num_random_images = int(sample_fraction * num_samples)
 
         # Ensure the number of images to extract is less than or equal to the total number of images
         assert num_random_images <= len(paths), f"Number of images to extract exceeds total images in directory: {len(paths)}"
