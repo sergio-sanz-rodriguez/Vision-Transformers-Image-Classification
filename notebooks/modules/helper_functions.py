@@ -16,6 +16,8 @@ from tqdm.auto import tqdm
 from tkinter import Tk
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+from sklearn.metrics import f1_score, accuracy_score, roc_curve, auc
+
 
 # Walk through an image classification directory and find out how many files (images)
 # are in each subdirectory.
@@ -633,3 +635,263 @@ def zip_folder(folder_path, output_zip, exclusions):
                 zipf.write(file_path, arcname=arcname)
 
 
+# Calculate accuracy (a classification metric)
+def accuracy_fn(y_true, y_pred):
+    """Calculates accuracy between truth labels and predictions.
+
+    Args:
+        y_true (torch.Tensor): Truth labels for predictions.
+        y_pred (torch.Tensor): Predictions to be compared to predictions.
+
+    Returns:
+        [torch.float]: Accuracy value between y_true and y_pred, e.g. 78.45
+    """
+    correct = torch.eq(y_true, y_pred).sum().item()
+    acc = (correct / len(y_pred)) * 100
+    return acc
+
+
+def find_roc_threshold_tpr(y, y_pred, value_target):
+    """
+    This function calculates the threshold and false positive rate corresponding to a true positive rate of value_target (from 0 to 1).
+       
+    y                     # Real labels
+    y_pred                # Predicted labels
+    value_target          # False positive rate value
+    
+    Returns:
+    
+    threshold             # Threshold value
+    true_positive_rate   # True positive rate value
+    """
+
+    fpr, tpr, thr = roc_curve(y, y_pred)
+
+    closest_index = np.argmin(np.abs(tpr - value_target))
+
+    threshold = thr[closest_index]
+    false_pos_rate = fpr[closest_index]
+
+    return threshold, false_pos_rate
+
+
+def find_roc_threshold_fpr(y, y_pred, value_target):
+    """
+    This function calculates the threshold and true positive rate corresponding to a fixed false positive rate (FPR).
+
+    Parameters:
+    y              # Real labels
+    y_pred         # Predicted probabilities
+    value_target   # Desired false positive rate (FPR) value (between 0 and 1)
+    
+    Returns:
+    threshold       # Threshold value
+    true_positive_rate  # Corresponding true positive rate (TPR)
+    """
+    
+    fpr, tpr, thr = roc_curve(y, y_pred)
+
+    # Find the index where FPR is closest to value_target
+    closest_index = np.argmin(np.abs(fpr - value_target))
+
+    threshold = thr[closest_index]
+    true_pos_rate = tpr[closest_index]
+
+    return threshold, true_pos_rate
+
+def find_roc_threshold_f1(pred_prob, y):
+    """
+    This function calculates the threshold in the ROC curve that maximizes the F1 score.
+    model                    # Trained model
+    pred_prob                # Prediction probabilities
+    y                        # Target dataset
+    
+    Returns:
+    
+    best_threshold           # Threshold value
+    best_f1_score            # F1 score value
+    """
+    
+    # Get predicted probabilities for the positive class
+    pred_prob = model.predict_proba(X)[:, 1]
+
+    best_threshold = 0.5
+    best_f1_score = 0.0
+    # Compute the ROC curve (FPR, TPR, thresholds)
+    fpr, tpr, thresholds = roc_curve(y, pred_prob)
+
+    for threshold in thresholds:
+        # Make predictions based on the threshold
+        pred_tmp = np.where(pred_prob >= threshold, 1, 0)
+        # Calculate F1 score for this threshold
+        score = f1_score(y, pred_tmp)
+        
+        if score > best_f1_score:
+            best_f1_score = score
+            best_threshold = threshold
+
+    return best_threshold, best_f1_score
+
+def find_roc_threshold_accuracy(pred_prob, y):
+    """
+    This function calculates the threshold in the ROC curve that maximizes the accuracy score.
+    model                    # Trained model
+    pred_prob                # Prediction probabilities
+    y                        # Target dataset
+    
+    Returns:
+    
+    best_threshold           # Threshold value
+    best_acc_score           # Accuracy score value
+    """
+    
+    best_threshold = 0.5
+    best_acc_score = 0.0
+    # Compute the ROC curve (FPR, TPR, thresholds)
+    fpr, tpr, thresholds = roc_curve(y, pred_prob)
+
+    for threshold in thresholds:
+        # Make predictions based on the threshold
+        pred_tmp = np.where(pred_prob >= threshold, 1, 0)
+        # Calculate accuracy score for this threshold
+        score = accuracy_score(y, pred_tmp)
+        
+        if score > best_acc_score:
+            best_acc_score = score
+            best_threshold = threshold
+
+    return best_threshold, best_acc_score
+
+def partial_auc_score(y_actual, y_pred, tpr_threshold=0.80):
+    
+    """
+    This function calculates the partial AUC score
+    y_true: true labels
+    y_scores: predictions
+    tpr_threshold: true positive rate (recall) threshold above which the auc score will be computed
+    """
+  
+    max_fpr = 1 - tpr_threshold
+
+    # create numpy arrays
+    y_actual = np.asarray(y_actual)
+    y_pred = np.asarray(y_pred)
+
+    # ROC curve
+    fpr, tpr, _ = roc_curve(y_actual, y_pred)
+
+    # Find the index where fpr exceeds max_fpr
+    stop_index = np.searchsorted(fpr, max_fpr, side='right')
+
+    if stop_index < len(fpr):
+        # Interpolate to find the TPR at max_fpr
+        fpr_interp_points = [fpr[stop_index - 1], fpr[stop_index]]
+        tpr_interp_points = [tpr[stop_index - 1], tpr[stop_index]]
+        tpr = np.append(tpr[:stop_index], np.interp(max_fpr, fpr_interp_points, tpr_interp_points))
+        fpr = np.append(fpr[:stop_index], max_fpr)
+    else:
+        tpr = np.append(tpr, 1.0)
+        fpr = np.append(fpr, max_fpr)
+
+    # Calculate partial AUC
+    partial_auc_value = auc(fpr, tpr)
+
+    return partial_auc_value
+
+def cross_val_partial_auc_score(X, y, model, n_splits):
+
+    """
+    This fuction calculates the average partial AUC score across all validation folds.
+    X: input vector
+    y: label
+    model: machine learning model to train and cross-validate
+    n_splits: number of k folds
+    """
+
+     # Setup cross-validation
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+    pauc_scores = []
+    cont = 1
+    for train_idx, val_idx in skf.split(X, y):
+
+        print(f'Processing fold {cont} of {n_splits}... ', end='', flush=True)
+        
+        # Create the folds
+        X_train_fold, X_val_fold = X.iloc[train_idx], X.iloc[val_idx]
+        y_train_fold, y_val_fold = y.iloc[train_idx], y.iloc[val_idx]
+                
+        # Train the model
+        model.fit(X_train_fold, y_train_fold)
+    
+        # Predict on the validation set
+        preds = model.predict_proba(X_val_fold)[:,1]
+   
+        # Calculate partical AUC and store it
+        pauc = partial_auc_score(y_val_fold, preds)
+        pauc_scores.append(pauc)
+
+        print(f'pAUC: {pauc}', flush=True)
+        
+        cont += 1
+    
+    # Return the average
+    return np.mean(pauc_scores)
+    
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Oranges,
+                          figsize=(10,10)):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    Source: http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
+    """
+    # Confusion matrix
+    #cm = confusion_matrix(test_labels, rf_predictions)
+    #plot_confusion_matrix(cm, classes = ['Poor Health', 'Good Health'],
+    #                      title = 'Health Confusion Matrix')
+
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+ 
+    # Plot the confusion matrix
+    plt.figure(figsize = figsize)
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title, size = 24)
+    plt.colorbar(aspect=4)
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45, size = 14)
+    plt.yticks(tick_marks, classes, size = 14)
+
+    fmt = '.3f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    
+    # Labeling the plot
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt), fontsize = 20,
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+        
+    #plt.grid(None)
+    plt.tight_layout()
+    plt.ylabel('True label', size = 18)
+    plt.xlabel('Predicted label', size = 18)
+
+def plot_class_distribution(y, y_pred, labels):
+    """
+    This function plots the statistical distrution of the two predicted classes.
+    """
+    df = pd.DataFrame({'Predicted': list(y_pred), 'Real': list(y)})
+    df.Predicted = df.Predicted.astype(float)
+    df.Real = df.Real.astype(int)
+    sns.kdeplot(data=df, x='Predicted', hue='Real', fill=True, alpha=0.2, linewidth=1.5)
+    plt.xlabel('Predicted Values')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Predicted Values for Each Class')
+    plt.legend(labels=labels)
+   # plt.show()
