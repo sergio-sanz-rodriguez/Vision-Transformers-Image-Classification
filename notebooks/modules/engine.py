@@ -869,10 +869,10 @@ class ClassificationEngine:
                 # Backward pass
                 loss.backward()
 
-                # Gradient cliping
-                if enable_clipping:
-                    # Apply clipping if needed
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            # Gradient cliping
+            if enable_clipping:
+                # Apply clipping if needed
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             # Perform optimizer step and clear gradients every accumulation_steps
             if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(dataloader):
@@ -908,6 +908,7 @@ class ClassificationEngine:
 
             # Accumulate metrics
             train_loss += loss.item() * accumulation_steps  # Scale back to original loss
+            y_pred = y_pred.float() # Convert to float for stability
             y_pred_class = y_pred.argmax(dim=1)
             train_acc += Common.calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item() / len(y_pred)
 
@@ -1013,6 +1014,7 @@ class ClassificationEngine:
                             continue
 
                     # Calculate and accumulate accuracy
+                    test_pred = test_pred.float() # Convert to float for stability
                     test_pred_class = test_pred.argmax(dim=1)
                     test_acc += Common.calculate_accuracy(y, test_pred_class) #((test_pred_class == y).sum().item()/len(test_pred))
 
@@ -1400,81 +1402,81 @@ class ClassificationEngine:
         writer=False, #: SummaryWriter=False,
         ) -> pd.DataFrame:
 
-            """
-    Trains and tests a PyTorch model for a given number of epochs.
+        """
+        Trains and tests a PyTorch model for a given number of epochs.
 
-    This function handles the training loop, evaluates the model performance on both training
-    and test datasets, and stores the metrics. It also supports model saving, learning rate
-    scheduling, and debugging capabilities. Optionally, it supports logging the training process
-    with TensorBoard, and handles gradient accumulation and mixed precision training.
+        This function handles the training loop, evaluates the model performance on both training
+        and test datasets, and stores the metrics. It also supports model saving, learning rate
+        scheduling, and debugging capabilities. Optionally, it supports logging the training process
+        with TensorBoard, and handles gradient accumulation and mixed precision training.
 
-    During training, the model is evaluated after each epoch based on the provided dataloaders.
-    The model can be saved at different stages (e.g., at the end of each epoch or when the model 
-    achieves the best performance according to a specified metric such as loss, accuracy, or FPR).
+        During training, the model is evaluated after each epoch based on the provided dataloaders.
+        The model can be saved at different stages (e.g., at the end of each epoch or when the model 
+        achieves the best performance according to a specified metric such as loss, accuracy, or FPR).
 
-    Args:
-        target_dir (str, optional): Directory to save the trained model.
-        model_name (str, optional): Name for the saved model file. Must include file extension
-            such as ".pth", ".pt", ".pkl", ".h5", or ".torch".
-        save_best_model (Union[str, List[str]], optional): Criterion(s) for saving the model.
-            Options include:
-            - "loss" (validation loss),
-            - "acc" (validation accuracy),
-            - "fpr" (false positive rate at recall),
-            - "pauc" (partial area under the curve at recall),
-            - "last" (save model at the last epoch),
-            - "all" (save models for all epochs),
-            - A list, e.g., ["loss", "fpr"], is also allowed. Only applicable if `save_best_model` is True.
-        keep_best_models_in_memory (bool, optional): If True, the best models are kept in memory for future inference. The model state from the last epoch will always be kept in memory.
-        train_dataloader (torch.utils.data.DataLoader, optional): Dataloader for training the model.
-        test_dataloader (torch.utils.data.DataLoader, optional): Dataloader for testing the model.
-        apply_validation (bool, optional): Whether to apply validation after each epoch. Default is True.
-        num_classes (int, optional): Number of output classes for the model (default is 2).
-        optimizer (torch.optim.Optimizer, optional): Optimizer to use during training.
-        loss_fn (torch.nn.Module, optional): Loss function used for training.
-        scheduler (torch.optim.lr_scheduler, optional): Learning rate scheduler to adjust learning rate during training.
-        recall_threshold (float, optional): The recall threshold used to calculate the False Positive Rate (FPR). Default is 0.95.
-        recall_threshold_pauc (float, optional): The recall threshold used to calculate the partial Area Under the Curve (pAUC). Default is 0.95.
-        epochs (int, optional): Number of epochs to train the model. Default is 30.
-        plot_curves (bool, optional): Whether to plot training and testing curves. Default is True.
-        amp (bool, optional): Whether to use Automatic Mixed Precision (AMP) during training. Default is True.
-        enable_clipping (bool, optional): Whether to enable gradient and model output clipping. Default is False.
-        accumulation_steps (int, optional): Number of mini-batches to accumulate gradients before an optimizer step. Default is 1 (no accumulation).
-        debug_mode (bool, optional): Whether to enable debug mode. If True, it may slow down the training process.
-        writer (bool, optional): A TensorBoard SummaryWriter instance to log the model training results.
+        Args:
+            target_dir (str, optional): Directory to save the trained model.
+            model_name (str, optional): Name for the saved model file. Must include file extension
+                such as ".pth", ".pt", ".pkl", ".h5", or ".torch".
+            save_best_model (Union[str, List[str]], optional): Criterion(s) for saving the model.
+                Options include:
+                - "loss" (validation loss),
+                - "acc" (validation accuracy),
+                - "fpr" (false positive rate at recall),
+                - "pauc" (partial area under the curve at recall),
+                - "last" (save model at the last epoch),
+                - "all" (save models for all epochs),
+                - A list, e.g., ["loss", "fpr"], is also allowed. Only applicable if `save_best_model` is True.
+            keep_best_models_in_memory (bool, optional): If True, the best models are kept in memory for future inference. The model state from the last epoch will always be kept in memory.
+            train_dataloader (torch.utils.data.DataLoader, optional): Dataloader for training the model.
+            test_dataloader (torch.utils.data.DataLoader, optional): Dataloader for testing the model.
+            apply_validation (bool, optional): Whether to apply validation after each epoch. Default is True.
+            num_classes (int, optional): Number of output classes for the model (default is 2).
+            optimizer (torch.optim.Optimizer, optional): Optimizer to use during training.
+            loss_fn (torch.nn.Module, optional): Loss function used for training.
+            scheduler (torch.optim.lr_scheduler, optional): Learning rate scheduler to adjust learning rate during training.
+            recall_threshold (float, optional): The recall threshold used to calculate the False Positive Rate (FPR). Default is 0.95.
+            recall_threshold_pauc (float, optional): The recall threshold used to calculate the partial Area Under the Curve (pAUC). Default is 0.95.
+            epochs (int, optional): Number of epochs to train the model. Default is 30.
+            plot_curves (bool, optional): Whether to plot training and testing curves. Default is True.
+            amp (bool, optional): Whether to use Automatic Mixed Precision (AMP) during training. Default is True.
+            enable_clipping (bool, optional): Whether to enable gradient and model output clipping. Default is False.
+            accumulation_steps (int, optional): Number of mini-batches to accumulate gradients before an optimizer step. Default is 1 (no accumulation).
+            debug_mode (bool, optional): Whether to enable debug mode. If True, it may slow down the training process.
+            writer (bool, optional): A TensorBoard SummaryWriter instance to log the model training results.
 
-    Returns:
-        pd.DataFrame: A dataframe containing the metrics for training and testing across all epochs.
-        The dataframe will have the following columns:
-        - epoch: List of epoch numbers.
-        - train_loss: List of training loss values for each epoch.
-        - train_acc: List of training accuracy values for each epoch.
-        - test_loss: List of test loss values for each epoch.
-        - test_acc: List of test accuracy values for each epoch.
-        - train_time: List of training time for each epoch.
-        - test_time: List of testing time for each epoch.
-        - lr: List of learning rate values for each epoch.
-        - train_fpr: List of False Positive Rate values for training set at recall threshold.
-        - test_fpr: List of False Positive Rate values for test set at recall threshold.
-        - train_pauc: List of partial AUC values for training set at recall threshold.
-        - test_pauc: List of partial AUC values for test set at recall threshold.
+        Returns:
+            pd.DataFrame: A dataframe containing the metrics for training and testing across all epochs.
+            The dataframe will have the following columns:
+            - epoch: List of epoch numbers.
+            - train_loss: List of training loss values for each epoch.
+            - train_acc: List of training accuracy values for each epoch.
+            - test_loss: List of test loss values for each epoch.
+            - test_acc: List of test accuracy values for each epoch.
+            - train_time: List of training time for each epoch.
+            - test_time: List of testing time for each epoch.
+            - lr: List of learning rate values for each epoch.
+            - train_fpr: List of False Positive Rate values for training set at recall threshold.
+            - test_fpr: List of False Positive Rate values for test set at recall threshold.
+            - train_pauc: List of partial AUC values for training set at recall threshold.
+            - test_pauc: List of partial AUC values for test set at recall threshold.
 
-    Example output (for 2 epochs):
-    {
-        epoch: [1, 2],
-        train_loss: [2.0616, 1.0537],
-        train_acc: [0.3945, 0.3945],
-        test_loss: [1.2641, 1.5706],
-        test_acc: [0.3400, 0.2973],
-        train_time: [1.1234, 1.5678],
-        test_time: [0.4567, 0.7890],
-        lr: [0.001, 0.0005],
-        train_fpr: [0.1234, 0.2345],
-        test_fpr: [0.3456, 0.4567],
-        train_pauc: [0.1254, 0.3445],
-        test_pauc: [0.3154, 0.4817]
-    }
-    """
+        Example output (for 2 epochs):
+        {
+            epoch: [1, 2],
+            train_loss: [2.0616, 1.0537],
+            train_acc: [0.3945, 0.3945],
+            test_loss: [1.2641, 1.5706],
+            test_acc: [0.3400, 0.2973],
+            train_time: [1.1234, 1.5678],
+            test_time: [0.4567, 0.7890],
+            lr: [0.001, 0.0005],
+            train_fpr: [0.1234, 0.2345],
+            test_fpr: [0.3456, 0.4567],
+            train_pauc: [0.1254, 0.3445],
+            test_pauc: [0.3154, 0.4817]
+        }
+        """
 
         # Starting training time
         train_start_time = time.time()
@@ -2304,7 +2306,6 @@ class DistillationEngine:
                 with autocast(device_type='cuda', dtype=torch.float16):
                     # Forward pass
                     y_pred = self.model(X).contiguous()
-
                     y_pred_tch = self.model_tch(X_tch).contiguous()
 
                     # Check if the output has NaN or Inf values
@@ -2349,10 +2350,10 @@ class DistillationEngine:
                 # Backward pass
                 loss.backward()
 
-                # Gradient cliping
-                if enable_clipping:
-                    # Apply clipping if needed
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            # Gradient cliping
+            if enable_clipping:
+                # Apply clipping if needed
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             # Perform optimizer step and clear gradients every accumulation_steps
             if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(dataloader_std):
@@ -2388,6 +2389,7 @@ class DistillationEngine:
 
             # Accumulate metrics
             train_loss += loss.item() * accumulation_steps  # Scale back to original loss
+            y_pred = y_pred.float() # Convert to float for stability
             y_pred_class = y_pred.argmax(dim=1)
             train_acc += Common.calculate_accuracy(y, y_pred_class) #(y_pred_class == y).sum().item() / len(y_pred)
 
@@ -2477,7 +2479,6 @@ class DistillationEngine:
                         test_pred = self.model(X).contiguous()
                         test_pred_tch = self.model_tch(X_tch).contiguous()
 
-
                         # Check for NaN/Inf in predictions
                         if torch.isnan(test_pred).any() or torch.isinf(test_pred).any():
                             if enable_clipping:
@@ -2502,6 +2503,7 @@ class DistillationEngine:
                             continue
 
                     # Calculate and accumulate accuracy
+                    test_pred = test_pred.float() # Convert to float for stability
                     test_pred_class = test_pred.argmax(dim=1)
                     test_acc += Common.calculate_accuracy(y, test_pred_class) #((test_pred_class == y).sum().item()/len(test_pred))
 
@@ -2863,85 +2865,114 @@ class DistillationEngine:
 
         # Print elapsed time
         print(f"{Common.info} Training finished! Elapsed time: {Common.sec_to_min_sec(train_time)}")
+
+    
+    # Trains and tests a Pytorch model
+    def train(
+        self,
+        target_dir: str=None,
+        model_name: str=None,
+        save_best_model: Union[str, List[str]] = "last",
+        keep_best_models_in_memory: bool=False,
+        train_dataloader_std: torch.utils.data.DataLoader=None,
+        train_dataloader_tch: torch.utils.data.DataLoader=None, 
+        test_dataloader_std: torch.utils.data.DataLoader=None,
+        test_dataloader_tch: torch.utils.data.DataLoader=None,
+        apply_validation: bool=True,
+        num_classes: int=2, 
+        optimizer: torch.optim.Optimizer=None,
+        loss_fn: torch.nn.Module=None,
+        scheduler: torch.optim.lr_scheduler=None,
+        recall_threshold: float=0.95,
+        recall_threshold_pauc: float=0.95,
+        epochs: int=30, 
+        plot_curves: bool=True,
+        amp: bool=True,
+        enable_clipping: bool=False,
+        accumulation_steps: int=1,
+        debug_mode: bool=False,
+        writer=False, #: SummaryWriter=False,
+        ) -> pd.DataFrame:
+
             
         """Trains and tests a PyTorch model using both student and teacher models.
 
-    The function passes the student and teacher models through the train_step() 
-    and test_step() functions for a number of epochs, training and testing the 
-    models in the same epoch loop.
+        The function passes the student and teacher models through the train_step() 
+        and test_step() functions for a number of epochs, training and testing the 
+        models in the same epoch loop.
 
-    Calculates, prints, and stores evaluation metrics throughout. Optionally, 
-    stores the metrics in a writer log directory if provided.
+        Calculates, prints, and stores evaluation metrics throughout. Optionally, 
+        stores the metrics in a writer log directory if provided.
 
-    Args:
-        target_dir: A directory for saving the model to.
-        model_name: A filename for the saved model. Should include ".pth", 
-                    ".pt", ".pkl", ".h5", or ".torch" as the file extension.
-        save_best_model (Union[str, List[str]]): Criterion mode for saving the model: 
-        - "loss" (validation loss)
-        - "acc" (validation accuracy)
-        - "fpr" (false positive rate at recall)
-        - "pauc" (partial area under the curve at recall)
-        - "last" (last epoch)
-        - "all" (save models for all epochs)
-        - A list, e.g., ["loss", "fpr"], is also allowed. Only applicable if `save_best_model` is True.
-        keep_best_models_in_memory: If True, keeps the best models in memory for future use during inference. The model state at the last epoch will always be kept in memory.
-        train_dataloader_std: A DataLoader instance for the student model to be trained on.
-        train_dataloader_tch: A DataLoader instance for the teacher model to be trained on.
-        test_dataloader_std: A DataLoader instance for the student model to be tested on.
-        test_dataloader_tch: A DataLoader instance for the teacher model to be tested on.
-        apply_validation:
-        - If set to True, the model's performance is evaluated on the validation dataset after each epoch,
-          helping to detect overfitting and guide potential adjustments in hyperparameters.
-        - If set to False, validation is skipped, which reduces computational cost and speeds up training,
-          but at the risk of overfitting.
-        - Default: True
-        num_classes: The number of classes for the classification task.
-        optimizer: A PyTorch optimizer to minimize the loss function.
-        loss_fn: A PyTorch loss function to calculate loss for both the student and teacher datasets.
-        scheduler: A PyTorch learning rate scheduler to adjust the learning rate during training.
-        recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1). 
-        recall_threshold_pauc: The recall threshold at which to calculate the pAUC score (between 0 and 1).
-        epochs: The number of epochs to train the model.
-        plot_curves: Whether to plot the training and testing curves.
-        amp: Whether to use Automatic Mixed Precision (AMP) for training.
-        enable_clipping: Whether to apply clipping to gradients and model outputs.
-        accumulation_steps: Number of mini-batches to accumulate gradients before performing an optimizer step.
-        debug_mode: Whether to enable the debug mode, which may slow down training.
-        writer: A SummaryWriter instance to log model metrics.
+        Args:
+            target_dir: A directory for saving the model to.
+            model_name: A filename for the saved model. Should include ".pth", 
+                        ".pt", ".pkl", ".h5", or ".torch" as the file extension.
+            save_best_model (Union[str, List[str]]): Criterion mode for saving the model: 
+            - "loss" (validation loss)
+            - "acc" (validation accuracy)
+            - "fpr" (false positive rate at recall)
+            - "pauc" (partial area under the curve at recall)
+            - "last" (last epoch)
+            - "all" (save models for all epochs)
+            - A list, e.g., ["loss", "fpr"], is also allowed. Only applicable if `save_best_model` is True.
+            keep_best_models_in_memory: If True, keeps the best models in memory for future use during inference. The model state at the last epoch will always be kept in memory.
+            train_dataloader_std: A DataLoader instance for the student model to be trained on.
+            train_dataloader_tch: A DataLoader instance for the teacher model to be trained on.
+            test_dataloader_std: A DataLoader instance for the student model to be tested on.
+            test_dataloader_tch: A DataLoader instance for the teacher model to be tested on.
+            apply_validation:
+            - If set to True, the model's performance is evaluated on the validation dataset after each epoch,
+            helping to detect overfitting and guide potential adjustments in hyperparameters.
+            - If set to False, validation is skipped, which reduces computational cost and speeds up training,
+            but at the risk of overfitting.
+            - Default: True
+            num_classes: The number of classes for the classification task.
+            optimizer: A PyTorch optimizer to minimize the loss function.
+            loss_fn: A PyTorch loss function to calculate loss for both the student and teacher datasets.
+            scheduler: A PyTorch learning rate scheduler to adjust the learning rate during training.
+            recall_threshold: The recall threshold at which to calculate the FPR (between 0 and 1). 
+            recall_threshold_pauc: The recall threshold at which to calculate the pAUC score (between 0 and 1).
+            epochs: The number of epochs to train the model.
+            plot_curves: Whether to plot the training and testing curves.
+            amp: Whether to use Automatic Mixed Precision (AMP) for training.
+            enable_clipping: Whether to apply clipping to gradients and model outputs.
+            accumulation_steps: Number of mini-batches to accumulate gradients before performing an optimizer step.
+            debug_mode: Whether to enable the debug mode, which may slow down training.
+            writer: A SummaryWriter instance to log model metrics.
 
-    Returns:
-        A dataframe of training and testing loss, accuracy, FPR at recall, and pAUC 
-        for each epoch. The dataframe contains the following columns:
-            - epoch: The epoch number.
-            - train_loss: The training loss for each epoch.
-            - train_acc: The training accuracy for each epoch.
-            - test_loss: The testing loss for each epoch.
-            - test_acc: The testing accuracy for each epoch.
-            - train_time: The time taken for training each epoch.
-            - test_time: The time taken for testing each epoch.
-            - lr: The learning rate for each epoch.
-            - train_fpr: The training FPR at recall for each epoch.
-            - test_fpr: The testing FPR at recall for each epoch.
-            - train_pauc: The training pAUC for each epoch.
-            - test_pauc: The testing pAUC for each epoch.
+        Returns:
+            A dataframe of training and testing loss, accuracy, FPR at recall, and pAUC 
+            for each epoch. The dataframe contains the following columns:
+                - epoch: The epoch number.
+                - train_loss: The training loss for each epoch.
+                - train_acc: The training accuracy for each epoch.
+                - test_loss: The testing loss for each epoch.
+                - test_acc: The testing accuracy for each epoch.
+                - train_time: The time taken for training each epoch.
+                - test_time: The time taken for testing each epoch.
+                - lr: The learning rate for each epoch.
+                - train_fpr: The training FPR at recall for each epoch.
+                - test_fpr: The testing FPR at recall for each epoch.
+                - train_pauc: The training pAUC for each epoch.
+                - test_pauc: The testing pAUC for each epoch.
 
-        Example Output (for 2 epochs):
-            {
-                epoch: [1, 2],
-                train_loss: [2.0616, 1.0537],
-                train_acc: [0.3945, 0.3945],
-                test_loss: [1.2641, 1.5706],
-                test_acc: [0.3400, 0.2973],
-                train_time: [1.1234, 1.5678],
-                test_time: [0.4567, 0.7890],
-                lr: [0.001, 0.0005],
-                train_fpr: [0.1234, 0.2345],
-                test_fpr: [0.3456, 0.4567],
-                train_pauc: [0.1254, 0.3445],
-                test_pauc: [0.3154, 0.4817]
-            }
-    """
+            Example Output (for 2 epochs):
+                {
+                    epoch: [1, 2],
+                    train_loss: [2.0616, 1.0537],
+                    train_acc: [0.3945, 0.3945],
+                    test_loss: [1.2641, 1.5706],
+                    test_acc: [0.3400, 0.2973],
+                    train_time: [1.1234, 1.5678],
+                    test_time: [0.4567, 0.7890],
+                    lr: [0.001, 0.0005],
+                    train_fpr: [0.1234, 0.2345],
+                    test_fpr: [0.3456, 0.4567],
+                    train_pauc: [0.1254, 0.3445],
+                    test_pauc: [0.3154, 0.4817]
+                }
+        """
 
         # Starting training time
         train_start_time = time.time()
