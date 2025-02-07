@@ -2,6 +2,7 @@
 Contains functionality for creating PyTorch DataLoaders for 
 image classification data.
 """
+
 import os
 import random
 import torch
@@ -426,7 +427,7 @@ def create_dataloaders_vit(
     return train_dataloader, test_dataloader, class_names
 
 
-def create_dataloaders_for_swin(
+def create_dataloaders_swin(
     swin_model: str = "swin_t",
     train_dir: str = "./train",
     test_dir: str = "./test",

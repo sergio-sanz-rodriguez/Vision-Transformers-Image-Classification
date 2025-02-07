@@ -1,3 +1,9 @@
+"""
+Defines custom loss functions for training deep learning models in PyTorch.  
+Includes implementations for specialized loss functions tailored for classification tasks.  
+Additional loss functions for other tasks (e.g., object detection, segmentation) may be added in the future.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
