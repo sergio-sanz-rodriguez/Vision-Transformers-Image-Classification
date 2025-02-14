@@ -54,7 +54,7 @@ A key innovation is the distillation token, which learns from the teacher’s pr
 
 The classification system includes two deep learning approaches: Transformer Lite and Transformer Pro. The first approach is able to make faster prediction and still reliable predictions, whereas the second one makes more accurate predictions at the expense of longer computation time.
 
-### 4.1. ⚡ Transformer Lite ⚡ 
+### 4.1. ⚡ ViT Lite ⚡ 
 
 The ViT Lite architecture is illustrated in the figure below. The process begins with an **EfficientNetB0** classifier, which determines whether the input image depicts food or non-food. If the image is classified as food, it is passed to a second deep learning model, a **ViT-Base/16-384** network. This network is also referred to as **ViT B** for simplicity.
 
@@ -64,7 +64,7 @@ This model resizes images to **384×384 pixels**, divides them into **16×16 pat
   <img src="images/model_pipeline_1.png" alt="ViT Lite Pipeline" width="550"/>
 </div>
 
-### 4.2. 💎 Transformer Pro 💎
+### 4.2. 💎 ViT Pro 💎
 
 This advanced ViT architecture builds upon the EfficientNetB0 and ViT-Base/16-384 algorithms, incorporating an additional classification model and a new ViT network to enhance prediction accuracy. The additional classification model, also based on EfficientNetB0, is designed to differentiate between known and unknown classes.
 
@@ -74,6 +74,14 @@ If both ViT classifiers agree on the top-class prediction, it is highly likely t
 
 <div align="center">
   <img src="images/model_pipeline_3.png" alt="ViT Pro Pipeline" width="1000"/>
+</div>
+
+### 4.3. 💎 Swin Pro 💎
+
+This pipeline is identical to the ViT Pro, except that the food classification models are based on the Swin-V2-Tiny Transformer. This model has been trained using the distillation technique, where a smaller, lightweight model (the "student") is trained to mimic the behavior of a larger, pre-trained model (the "teacher"). The models achieve comparable accuracy while speeding up inference.
+
+<div align="center">
+  <img src="images/model_pipeline_4.png" alt="Swin Pro Pipeline" width="1000"/>
 </div>
 
 ## 5.Model Performance
