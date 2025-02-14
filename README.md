@@ -78,7 +78,7 @@ If both ViT classifiers agree on the top-class prediction, it is highly likely t
 
 ### 4.3. 💎 Swin Pro 💎
 
-This pipeline is identical to the ViT Pro, except that the food classification models are based on the Swin-V2-Tiny Transformer. This model has been trained using the distillation technique, where a smaller, lightweight model (the "student") is trained to mimic the behavior of a larger, pre-trained model (the "teacher"). The models achieve comparable accuracy while speeding up inference.
+This pipeline is identical to ViT Pro, except that the food classification models are based on the **Swin-V2-Tiny Transformer**. It has been trained using the [distillation technique](https://www.ibm.com/think/topics/knowledge-distillation#:~:text=Knowledge%20distillation%20is%20a%20machine,for%20massive%20deep%20neural%20networks), where a smaller, lightweight model (the "student") learns to mimic the behavior of a larger, pre-trained model (the "teacher"). This approach maintains comparable accuracy while significantly improving inference speed.
 
 <div align="center">
   <img src="images/model_pipeline_4.png" alt="Swin Pro Pipeline" width="1000"/>
@@ -115,22 +115,24 @@ As observed, the binary classification model achieves near perfect prediction.
 As observed, the binary classification model also achieves near perfect prediction.
 
 **Food Classifier**
-| Parameter | EffNet A | EffNet B | ViT A | ViT B | ViT C |
-| ----- | ----- | ----- | ----- | ----- | ----- | 
-| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 |
-| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels | 384x384 pixels |
-| Number of classes | 101 | 101 | 101 | 101 | 101 + "unknown" |
-| Model size | 37 MB | 461 MB | 327 MB | 328 MB | 328 MB |
-| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million |
-| Accuracy | 88.0% | 92.9% | 87.7% | 92.7% | 92.8% |
-| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.1 images/sec | 3.1 images/sec |
-| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 45.7 images/sec | 40.3 images/sec | 40 images/sec |
-| Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~20 min/epoch |
+| Parameter | EffNet A | EffNet B | ViT A | ViT B | ViT C | Swin A | Swin B
+| ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| Model architecture | EfficientNetB2 | EfficientNetV2L | ViT-Base/16 | ViT-Base/16 | ViT-Base/16 | Swin-V2-Tiny | Swin-V2-Tiny |
+| Input image size | 288x288 pixels | 480x480 pixels | 224x224 pixels | 384x384 pixels | 384x384 pixels | 256x256 pixels | 256x256 pixels |
+| Number of classes | 101 | 101 | 101 | 101 | 101 + "unknown" | 101 | 101 + "unknown" | 
+| Model size | 37 MB | 461 MB | 327 MB | 328 MB | 328 MB | 106 MB | 106 MB |
+| Number of parameters | 9.2 million | 117.4 million | 85.9 million | 86.2 million | 86.2 million | 27.7 million | 27.7 millin |
+| Accuracy | 88.0% | 92.9% | 87.7% | 92.7% | 92.8% | 91.8% | 91.7% |
+| Performance on CPU (Core i9-9900K) | 16.7 image/sec | 1.4 images/sec | 9.1 images/sec | 3.1 images/sec | 3.1 images/sec | 8.2 images/sec | 7.7 images/sec |
+| Performance on GPU (RTX 4070) | 20 images/sec | 3.6 images/sec | 45.7 images/sec | 40.3 images/sec | 40 images/sec | 11.5 images/sec | 10.9 images/sec |
+| Training time (RTX 4070) | ~8 min/epoch | ~94 min/epoch | ~8 min/epoch | ~18 min/epoch | ~20 min/epoch | ~41 min/epoch | ~41 min/epoch |
 <br>
 
-The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices. We can also observe that EfficientNetV2L achieves the highest accuracy (92.9%), followed very closely by ViT-Base/16-384 (91.6%). However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU.
+The above table shows a comparison between different deep learning architectures. As observed, ViT-Base/16-224 achieves an accuracy comparable to EfficientNetB2, but the latter predicts almost twice as fast on the CPU, although not on the GPU. This indicates that the ViT model is highly optimized for GPU devices.
 
-Therefore, the **`ViT-Base/16-384`** architectures (ViT B and ViT C) are the ones that achieve the best trade-off between accuracy and prediction speed.
+We can also observe that EfficientNetV2L achieves the highest accuracy (92.9%), followed very closely by ViT-Base/16-384 (91.6%), then by Swin-V2-Tiny (91.8%). However, EfficientNetV2L is about twice as slow on the CPU and significantly slower on the GPU compared to ViT-Base/16-384. We can also observe that Swin-V2-Tiny is about 3 times faster than ViT-Base/16-384 on the CPU, but four times slower on the GPU.
+
+Therefore, the **`ViT-Base/16-384`** architectures (ViT B and ViT C) are the ones that achieve the best trade-off between accuracy and prediction speed, especially on GPU devices. However, for CPU-based workflows, the **`Swin-V2-Tiny`** architectures (Swin A and Swin B) are recommended.
 
 <div align="center">
   <img src="images/f1-score_vs_food-type_vit_model_5.png" alt="F1-Score" width="1500"/>
@@ -202,6 +204,8 @@ For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the
 * [ViT_Modeling_v3.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v3.ipynb): It includes more ViT-Base models trained with 102 classes, the 101 original ones plus another called "unknown", and using an input image size of 384x384 pixels instead of 224x224 pixels, which require other non-default pretrained weights, particularly [ViT_B_16_Weights.IMAGENET1K_SWAG_E2E_V1](https://pytorch.org/vision/main/models/generated/torchvision.models.vit_b_16.html#torchvision.models.vit_b_16).
 * [ViT_Modeling_v4.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v4.ipynb): It includes an updated version of the model for classifying 101 food types. **This version achieves higher accuracy (92.7%)** with respect to the version in ViT_Modeling_v3.ipynb (91.6%).
 * [ViT_Modeling_v5.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Modeling_v5.ipynb): It includes an updated version of the model for classifying 101 food types + unknown. **This version achieves higher accuracy (92.8%)** with respect to the version in ViT_Modeling_v4.ipynb (91.3%).
+* [Swin_Modeling_v1.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Swin_Modeling_v1.ipynb): This notebook demonstrates the training process of a Swin-V2-Tiny transformer architecture for classifying 101 food types. The process leverages the distillation technique, with ViT-Base/17-384 selected as the "teacher" model.
+* [Swin_Modeling_v2.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Swin_Modeling_v2.ipynb): This notebook demonstrates the training process of a Swin-V2-Tiny transformer architecture for classifying 101 food types + unknown. The process also leverages the distillation technique.
 
 ### Multi-class Model Performance Evaluation
 * [EfficientNetB2_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/EfficientNetB2_Evaluation.ipynb): This notebook mainly focuses on evaluating the model obtained from the EfficientNetB2_Modeling.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
@@ -211,6 +215,8 @@ For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the
 * [ViT_Evaluation_v3.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Evaluation_v3.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the ViT_Modeling_v3.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 * [ViT_Evaluation_v4.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Evaluation_v4.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the ViT_Modeling_v4.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 * [ViT_Evaluation_v5.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/ViT_Evaluation_v5.ipynb): This notebook mainly focuses on evaluating the best performing ViT model obtained from the ViT_Modeling_v5.ipynb notebook. The evaluation metrics used include: accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
+* [Swin_Evaluation_v1.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Swin_Evaluation_v1.ipynb): In this notebook the Swin-V2-Tiny model for classifying 101 food types is evaluated in terms of accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
+* [Swin_Evaluation_v2.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Swin_Evaluation_v2.ipynb): In this notebook the Swin-V2-Tiny model for classifying 101 food types + unknown is evaluated in terms of accuracy, false positive rate at 95% recall, prediction time on the CPU and GPU, model size, and number of parameters.
 
 ### Comparing Vision Transformers and CNNs
 * [Comp_ConvNeXt_Modeling.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ConvNeXt_Modeling.ipynb) / [Comp_ConvNeXt_Evaluation.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Comp_ConvNeXt_Evaluation.ipynb): These notebooks are used to train and evaluate the performance of a ConvNeXt CNN model.
@@ -228,6 +234,7 @@ For GPU-intensive, high-throughput workflows, a **ViT transformer** might be the
 * [Model_Deployment_v5.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v5.ipynb): This notebook introduces an updated version of the app, with the primary change being an improved display of the supported food types.
 * [Model_Deployment_v6.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v6.ipynb): This notebook updates the app with the inclusion of another binary classification model to distiguish between known and unknown food types. This change only affect the ViT Pro model.
 * [Model_Deployment_v7.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v7.ipynb): This notebook updates the app with enhanced food classification models that achieve higher prediction accuracy.
+* [Model_Deployment_v8.ipynb](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/Model_Deployment_v8.ipynb): This notebook updates the app with the Swin-based deep learning pipeline shown in Section 4.3.
 
 ### ViT and Other Training Libraries
 * [vision_transformer.py](https://github.com/sergio-sanz-rodriguez/Vision-Transformers-Image-Classification/blob/main/notebooks/modules/vision_transformer.py): Implementation of the ViT architecture describe in the paper titled ["An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale"](https://arxiv.org/abs/2010.11929). Two classes are implemented: 
