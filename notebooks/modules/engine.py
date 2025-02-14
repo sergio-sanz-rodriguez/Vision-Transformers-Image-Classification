@@ -4,7 +4,6 @@ Currently, the functionality is limited to classification tasks.
 Support for other deep learning tasks, such as object segmentation, will be added in the future.
 """
 
-
 import os
 import glob
 import logging
@@ -25,7 +24,10 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from timeit import default_timer as timer
 from PIL import Image
-from torch import GradScaler, autocast
+try:
+    from torch.amp import GradScaler, autocast
+except ImportError:
+    from torch.cuda.amp import GradScaler, autocast
 from sklearn.metrics import precision_recall_curve, classification_report, roc_curve, auc
 from contextlib import nullcontext
 from sklearn.preprocessing import LabelEncoder
@@ -196,6 +198,15 @@ class Common:
         model.load_state_dict(torch.load(model_save_path, weights_only=True))
         
         return model
+    
+    @staticmethod
+    def get_predictions(output):
+        if isinstance(output, torch.Tensor):
+            return output.contiguous()
+        elif hasattr(output, "logits"):
+            return output.logits.contiguous()
+        else:
+            raise TypeError(f"Unexpected model output type: {type(output)}")
 
 
 # Training and prediction engine class
@@ -235,6 +246,7 @@ class ClassificationEngine:
         self.model_name_acc = None
         self.model_name_fpr = None
         self.model_name_pauc = None
+        self.get_predictions = Common.get_predictions
      
         # Create empty results dictionary
         self.results = {
@@ -255,14 +267,6 @@ class ClassificationEngine:
         # Check if model is provided
         if self.model is None:
             raise ValueError(f"{Common.error} Instantiate the engine by passing a PyTorch model to handle.")
-            #print(f"self.colors['GREEN']}[INFO] Use method 'load' to load the model or instatiate again the model using attribute 'model'.")
-            #warnings.warn(
-            #    "[WARNING] No model has been introduced. Only limited functionalities "
-            #    "will be allowed: 'sec_to_min_sec', 'calculate_accuracy', "
-            #    "'calculate_fpr_at_recall', 'calculate_pauc_at_recall', "
-            #    "'load', and 'create_writer'."
-            #    "You can later on load the model with 'load'."
-            #)
         else:
             self.model.to(self.device)
 
@@ -812,13 +816,14 @@ class ClassificationEngine:
         scaler = GradScaler() if amp else None
 
         # Setup train loss and train accuracy values
+        len_dataloader = len(dataloader)
         train_loss, train_acc = 0, 0    
         all_preds = []
         all_labels = []
 
         # Loop through data loader data batches
         self.optimizer.zero_grad()  # Clear gradients before starting
-        for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader)):
+        for batch, (X, y) in tqdm(enumerate(dataloader), total=len_dataloader):
             
             # Send data to target device
             X, y = X.to(self.device), y.to(self.device)
@@ -827,9 +832,8 @@ class ClassificationEngine:
             if amp:
                 with autocast(device_type='cuda', dtype=torch.float16):
                     # Forward pass
-                    y_pred = self.model(X)
-                    y_pred = y_pred.contiguous()
-
+                    y_pred = self.get_predictions(self.model(X))
+                    
                     # Check if the output has NaN or Inf values
                     if torch.isnan(y_pred).any() or torch.isinf(y_pred).any():
                         if enable_clipping:
@@ -863,8 +867,7 @@ class ClassificationEngine:
 
             else:
                 # Forward pass
-                y_pred = self.model(X)
-                y_pred = y_pred.contiguous()
+                y_pred = self.get_predictions(self.model(X))
                 
                 # Calculate loss, normalize by accumulation steps
                 loss = self.loss_fn(y_pred, y) / accumulation_steps
@@ -920,8 +923,8 @@ class ClassificationEngine:
             all_labels.append(y.detach().cpu())
 
         # Adjust metrics to get average loss and accuracy per batch
-        train_loss = train_loss / len(dataloader)
-        train_acc = train_acc / len(dataloader)
+        train_loss /= len_dataloader
+        train_acc /= len_dataloader
 
         # Final FPR calculation
         all_labels = torch.cat(all_labels)
@@ -976,6 +979,7 @@ class ClassificationEngine:
             self.model.to(self.device)
 
             # Setup test loss and test accuracy values
+            len_dataloader = len(dataloader)
             test_loss, test_acc = 0, 0
             all_preds = []
             all_labels = []
@@ -983,15 +987,14 @@ class ClassificationEngine:
             # Turn on inference context manager
             with torch.inference_mode():
                 # Loop through DataLoader batches
-                for batch, (X, y) in tqdm(enumerate(dataloader), total=len(dataloader), colour='#FF9E2C'):
+                for batch, (X, y) in tqdm(enumerate(dataloader), total=len_dataloader, colour='#FF9E2C'):
                     #, desc=f"Validating epoch {epoch_number}..."):
                     # Send data to target device
                     X, y = X.to(self.device), y.to(self.device)
 
                     # Enable AMP if specified
                     with torch.autocast(device_type='cuda', dtype=torch.float16) if amp else nullcontext():
-                        test_pred = self.model(X)
-                        test_pred = test_pred.contiguous()
+                        test_pred = self.get_predictions(self.model(X))
 
                         # Check for NaN/Inf in predictions
                         if torch.isnan(test_pred).any() or torch.isinf(test_pred).any():
@@ -1026,8 +1029,8 @@ class ClassificationEngine:
                     all_labels.append(y.detach().cpu())
 
             # Adjust metrics to get average loss and accuracy per batch 
-            test_loss = test_loss / len(dataloader)
-            test_acc = test_acc / len(dataloader)
+            test_loss /= len_dataloader
+            test_acc /= len_dataloader
 
             # Final FPR calculation
             all_labels = torch.cat(all_labels)
@@ -1830,10 +1833,7 @@ class ClassificationEngine:
         return pred_list, classification_report_dict
     
 
-
-
-
-    # Training and prediction engine class
+# Training and prediction engine class
 class DistillationEngine:
 
     """
@@ -1872,6 +1872,7 @@ class DistillationEngine:
         self.model_name_acc = None
         self.model_name_fpr = None
         self.model_name_pauc = None
+        self.get_predictions = Common.get_predictions
      
         # Create empty results dictionary
         self.results = {
@@ -1892,14 +1893,6 @@ class DistillationEngine:
         # Check if model is provided
         if self.model is None:
             raise ValueError(f"{Common.error} Instantiate the engine by passing a PyTorch model to handle.")
-            #print(f"self.colors['GREEN']}[INFO] Use method 'load' to load the model or instatiate again the model using attribute 'model'.")
-            #warnings.warn(
-            #    "[WARNING] No model has been introduced. Only limited functionalities "
-            #    "will be allowed: 'sec_to_min_sec', 'calculate_accuracy', "
-            #    "'calculate_fpr_at_recall', 'calculate_pauc_at_recall', "
-            #    "'load', and 'create_writer'."
-            #    "You can later on load the model with 'load'."
-            #)
         else:
             self.model.to(self.device)
 
@@ -2280,6 +2273,7 @@ class DistillationEngine:
 
         print(f"{Common.info} Training epoch {epoch_number+1}...")
 
+
         # Put student model in train mode
         self.model.train()
         self.model.to(self.device)
@@ -2308,8 +2302,8 @@ class DistillationEngine:
             if amp:
                 with autocast(device_type='cuda', dtype=torch.float16):
                     # Forward pass
-                    y_pred = self.model(X).contiguous()
-                    y_pred_tch = self.model_tch(X_tch).contiguous()
+                    y_pred = self.get_predictions(self.model(X))
+                    y_pred_tch = self.get_predictions(self.model_tch(X_tch))
 
                     # Check if the output has NaN or Inf values
                     if torch.isnan(y_pred).any() or torch.isinf(y_pred).any():
@@ -2344,8 +2338,8 @@ class DistillationEngine:
 
             else:
                 # Forward pass
-                y_pred = self.model(X).contiguous()
-                y_pred_tch = self.model_tch(X_tch).contiguous()
+                y_pred = self.get_predictions(self.model(X))
+                y_pred_tch = self.get_predictions(self.model_tch(X_tch))
                 
                 # Calculate loss, normalize by accumulation steps
                 loss = self.loss_fn(y_pred, y_pred_tch, y) / accumulation_steps
@@ -2479,8 +2473,8 @@ class DistillationEngine:
 
                     # Enable AMP if specified
                     with torch.autocast(device_type='cuda', dtype=torch.float16) if amp else nullcontext():
-                        test_pred = self.model(X).contiguous()
-                        test_pred_tch = self.model_tch(X_tch).contiguous()
+                        test_pred = self.get_predictions(self.model(X))
+                        test_pred_tch = self.get_predictions(self.model_tch(X_tch))
 
                         # Check for NaN/Inf in predictions
                         if torch.isnan(test_pred).any() or torch.isinf(test_pred).any():
