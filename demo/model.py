@@ -77,6 +77,44 @@ def create_vitbase_model(
     
     return vitbase16_model
 
+def create_swin_tiny_model(
+    model_weights_dir:Path,
+    model_weights_name:str,
+    image_size:int=224,
+    num_classes:int=101,
+    compile:bool=False
+    ):
+
+    """
+    Creates a Swin-V2-Tiny model with the specified number of classes.
+
+    Args:
+        model_weights_dir: A directory where the model is located.
+        model_weights_name: The name of the model to load.
+        image_size: The size of the input image.
+        num_classes: The number of classes for the classification task.
+
+    Returns:
+    The created ViT-B/16 model.
+    """ 
+
+    # Instantiate the model
+    swint_model = torchvision.models.swin_v2_t().to("cpu")
+    swint_model.head = torch.nn.Linear(in_features=768, out_features=num_classes).to("cpu")
+    
+    # Compile the model
+    if compile:
+        swint_model = torch.compile(swint_model, backend="aot_eager")
+
+    # Load the trained weights
+    swint_model = load_model(
+        model=swint_model,
+        model_weights_dir=model_weights_dir,
+        model_weights_name=model_weights_name
+        )
+    
+    return swint_model
+
 # Create an EfficientNet-B0 Model
 def create_effnetb0(
         model_weights_dir: Path,

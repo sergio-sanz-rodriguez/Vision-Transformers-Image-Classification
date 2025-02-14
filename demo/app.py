@@ -5,7 +5,7 @@ import torch
 import json
 import string
 import gradio as gr
-from model import create_vitbase_model, create_effnetb0
+from model import create_vitbase_model, create_swin_tiny_model, create_effnetb0
 from timeit import default_timer as timer
 from typing import Tuple, Dict
 from torchvision.transforms import v2
@@ -56,10 +56,27 @@ vitbase_model_101 = create_vitbase_model(
     compile=True
 )
 
-vitbase_model_102 = create_vitbase_model(
+#vitbase_model_102 = create_vitbase_model(
+#    model_weights_dir=".",
+#    model_weights_name="vitbase16_102_2025-01-27_epoch19.pth",
+#    image_size=384,
+#    num_classes=num_classes_102,
+#    compile=True
+#)
+
+# Load the Swin-V2-Tiny transformer with input image of 384x384 pixels and 101 + unknown classes
+swint_model_101 = create_swin_tiny_model(
     model_weights_dir=".",
-    model_weights_name="vitbase16_102_2025-01-27_epoch19.pth",
-    image_size=384,
+    model_weights_name="swinv2tiny_101_2025-02-05_epoch25.pth",
+    image_size=256,
+    num_classes=num_classes_101,
+    compile=True
+)
+
+swint_model_102 = create_swin_tiny_model(
+    model_weights_dir=".",
+    model_weights_name="swinv2tiny_102_2025-02-08_acc_epoch28.pth",
+    image_size=256,
     num_classes=num_classes_102,
     compile=True
 )
@@ -84,12 +101,23 @@ transforms_vit = v2.Compose([
                 std=[0.229, 0.224, 0.225]) 
 ])
 
+# Specify manual transforms for Swins
+transforms_swint = v2.Compose([    
+    v2.Resize(260),
+    v2.CenterCrop((256, 256)),    
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
+    v2.Normalize(mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]) 
+])
 
 # Put models into evaluation mode and turn on inference mode
 effnetb0_model_1.eval()
 effnetb0_model_2.eval()
 vitbase_model_101.eval()
-vitbase_model_102.eval()
+#vitbase_model_102.eval()
+swint_model_101.eval()
+swint_model_102.eval()
 
 # Set thresdholds
 BINARY_CLASSIF_THR_1 = 0.8310611844062805
@@ -99,8 +127,8 @@ MULTICLASS_CLASSIF_THR = 0.5
 ENTROPY_THR = 2.7
 
 # Set model names
-lite_model = "⚡ ViT Lite ⚡ faster, less accurate prediction"
-pro_model =  "💎 ViT Pro 💎 slower, more accurate prediction"
+lite_model = "⚡ Lite ⚡ less accurate prediction"
+pro_model =  "💎 Pro 💎 more accurate prediction"
 
 # Computes the entropy
 def entropy(pred_probs):
@@ -166,24 +194,26 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
         if model == None:
             model = pro_model
         
+        print(model)
+
         # Make prediction...
         with torch.inference_mode():
             
             # If the picture is food
             if predict(image_eff, effnetb0_model_1)[:,1] >= BINARY_CLASSIF_THR_1:
 
-                # 💎 ViT Pro 💎
+                # 💎 Pro 💎
                 if model == pro_model:
 
                     # If the image is likely to be an known category
                     if  predict(image_eff, effnetb0_model_2)[:,1] >= BINARY_CLASSIF_THR_2:
 
                         # Preproces the image for the ViTs
-                        image_vit = transforms_vit(image).unsqueeze(0)
+                        image_swint = transforms_swint(image).unsqueeze(0)
 
                         # Pass the transformed image through the model and turn the prediction logits into prediction probabilities
-                        pred_probs_102 = predict(image_vit, vitbase_model_102)
-                        pred_probs_101 = predict(image_vit, vitbase_model_101)
+                        pred_probs_102 = predict(image_swint, swint_model_102)
+                        pred_probs_101 = predict(image_swint, swint_model_101)
                         
                         # Calculate entropy
                         entropy_102 = entropy(pred_probs_102)
@@ -239,7 +269,7 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
                         # Get the top predicted class
                         top_class = "unknown"
 
-                # ⚡ ViT Lite ⚡
+                # ⚡ Lite ⚡
                 else:
 
                     # Preproces the image for the ViTs
@@ -301,7 +331,7 @@ def classify_food(image, model=pro_model) -> Tuple[Dict, str, str]:
 # Create title, description, and examples
 title = "Transform-Eats Large<br>🥪🥗🥣🥩🍝🍣🍰"
 description = f"""
-A cutting-edge Vision Transformer (ViT) model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
+A cutting-edge transformer model to classify 101 delicious food types. Discover the power of AI in culinary recognition.
 """
 
 # Group food items alphabetically
@@ -351,12 +381,14 @@ with gr.Blocks(theme="ocean") as demo:
         mirror_webcam=False
     )
 
-    model_radio = gr.Radio(
-        choices=[lite_model, pro_model],
-        value=pro_model,
-        label="Select the AI algorithm:",
-        info="ViT Pro is selected by default if none is chosen."
-    )
+    #model_radio = gr.Radio(
+    #    choices=[lite_model, pro_model],
+    #    value=pro_model,
+    #    label="Select the AI algorithm:",
+    #    info="ViT Pro is selected by default if none is chosen."
+    #)
+
+    food_vision_examples = [["examples/" + example] for example in os.listdir("examples")]
 
     # Define the status message output field to display error messages
     status_output = gr.HTML(label="Status:")
@@ -370,15 +402,16 @@ with gr.Blocks(theme="ocean") as demo:
     # Create the Gradio demo
     gr.Interface(
         fn=classify_food,                                                  # mapping function from input to outputs
-        inputs=[upload_input, model_radio],                                # inputs
+        inputs=[upload_input],                                             # inputs
         outputs=[gr.Label(num_top_classes=3, label="Prediction"), 
                  gr.Textbox(label="Prediction time:"),
                  gr.Textbox(label="Food Description:"),
                  status_output],                                           # outputs
-                article=article,                                           # Created by...
-                flagging_mode=flagging_mode,                               # Only For debugging
-                flagging_options=["correct", "incorrect"],                 # Only For debugging
-                )  
+                 examples=food_vision_examples,                            # Create examples list from "examples/" directory                 
+                 article=article,                                          # Created by...
+                 flagging_mode=flagging_mode,                              # Only For debugging
+                 flagging_options=["correct", "incorrect"],                # Only For debugging
+                 )  
 
 # Launch the demo!
 demo.launch()
